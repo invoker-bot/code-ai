@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "code-ai"
+name = "ai-code-switcher"
 version = "0.1.0"
 description = "Switch AI coding tool profiles and launch the correct CLI"
 license = "MIT"

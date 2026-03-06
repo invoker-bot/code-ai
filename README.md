@@ -1,4 +1,4 @@
-# code-ai
+# ai-code-switcher
 
 一个用于切换 AI 编码工具配置文件并启动相应 CLI 的工具。
 
