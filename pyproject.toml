@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-ai"
+version = "0.1.0"
+description = "Switch AI coding tool profiles and launch the correct CLI"
+license = "MIT"
+requires-python = ">=3.8"
+dependencies = [
+    "pyyaml>=5.0",
+]
+
+[project.scripts]
+code-ai = "code_ai.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
