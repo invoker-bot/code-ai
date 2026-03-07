@@ -52,6 +52,25 @@ def add_profile(config):
     return config
 
 
+def show_profile(config, name):
+    profiles = config.get("profiles", {})
+    if name not in profiles:
+        print(f"Error: profile '{name}' not found.")
+        sys.exit(1)
+
+    profile = profiles[name]
+    print(f"Profile: {name}")
+    print(f"Type: {profile['type']}")
+    print(f"Base URL: {profile.get('base_url', 'N/A')}")
+
+    if profile['type'] == 'claude':
+        token = profile.get('token', 'N/A')
+        print(f"Token: {token}")
+    else:
+        api_key = profile.get('api_key', 'N/A')
+        print(f"API Key: {api_key}")
+
+
 def remove_profile(config, name):
     if name not in config.get("profiles", {}):
         print(f"Error: profile '{name}' not found.")
