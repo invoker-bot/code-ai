@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where npm)",
+      "Read(//home/invoker/.local/**)",
+      "Bash(mkdir -p ~/.local)",
+      "Bash(chmod +x ~/.local/test_npm_windows.py)",
+      "Bash(git add pyproject.toml)",
+      "Bash(git commit -m \"chore: bump version to 0.1.4\")",
+      "Bash(git tag v0.1.4)",
+      "Bash(git push && git push --tags)",
+      "Bash(git remote set-url origin git@github.com:invoker-bot/code-ai.git)",
+      "Bash(pytest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

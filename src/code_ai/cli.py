@@ -110,9 +110,16 @@ UPGRADE_PACKAGES = [
 
 def upgrade():
     typer.echo("Upgrading claude, codex, gemini CLI...")
-    result = subprocess.run(
-        ["npm", "install", "-g"] + UPGRADE_PACKAGES,
-    )
+
+    # On Windows, npm is a .cmd file, need to use shell=True or npm.cmd
+    if sys.platform == "win32":
+        # Use shell=True on Windows for better compatibility
+        cmd = "npm install -g " + " ".join(UPGRADE_PACKAGES)
+        result = subprocess.run(cmd, shell=True)
+    else:
+        result = subprocess.run(
+            ["npm", "install", "-g"] + UPGRADE_PACKAGES,
+        )
     sys.exit(result.returncode)
 
 

@@ -74,22 +74,41 @@ def add_profile(config):
 
 
 def show_profile(config, name):
+    from .models import profile_from_dict
+
     profiles = config.get("profiles", {})
     if name not in profiles:
         print(f"Error: profile '{name}' not found.")
         sys.exit(1)
 
-    profile = profiles[name]
-    print(f"Profile: {name}")
-    print(f"Type: {profile['type']}")
-    print(f"Base URL: {profile.get('base_url', 'N/A')}")
+    profile_dict = profiles[name]
+    profile = profile_from_dict(profile_dict)
 
-    if profile['type'] == 'claude':
-        token = profile.get('token', 'N/A')
-        print(f"Token: {token}")
-    else:
-        api_key = profile.get('api_key', 'N/A')
+    print(f"Profile: {name}")
+    print(f"Type: {profile.type}")
+
+    # Display mode for Claude type
+    if profile.type == "claude":
+        mode = profile_dict.get("mode", "api")
+        print(f"Mode: {mode}")
+
+        if mode == "login":
+            credentials_path = profile_dict.get("credentials_path", "N/A")
+            print(f"Credentials Path: {credentials_path}")
+        else:  # api mode
+            base_url = profile_dict.get("base_url", "N/A")
+            token = profile_dict.get("token", "N/A")
+            print(f"Base URL: {base_url}")
+            print(f"Token: {token}")
+    else:  # gemini or codex
+        base_url = profile_dict.get("base_url", "N/A")
+        api_key = profile_dict.get("api_key", "N/A")
+        print(f"Base URL: {base_url}")
         print(f"API Key: {api_key}")
+
+    # Display proxy if set
+    if profile.proxy:
+        print(f"Proxy: {profile.proxy}")
 
 
 def remove_profile(config, name):
