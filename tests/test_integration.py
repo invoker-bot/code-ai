@@ -218,3 +218,94 @@ class TestBackwardCompatibility:
             env = prepare_environment(profile)
             assert env["GOOGLE_GEMINI_BASE_URL"] == "https://generativelanguage.googleapis.com"
             assert env["GEMINI_API_KEY"] == "AIza-test-key"
+
+
+class TestCodexProfiles:
+    """Test codex profile workflows"""
+
+    def test_codex_api_profile(self, tmp_path):
+        """Test codex API mode profile"""
+        config_file = tmp_path / "config.yaml"
+
+        with patch("src.code_ai.config.CONFIG_FILE", config_file):
+            # Initialize config
+            config = {"profiles": {}}
+            save_config(config)
+
+            # Add codex API profile
+            inputs = [
+                "my-codex-api",            # Profile name
+                "codex",                   # Type
+                "api",                     # Mode
+                "https://api.openai.com/v1",  # Base URL
+                "sk-test-key",             # API key
+                "",                        # No proxy
+            ]
+
+            with patch("builtins.input", side_effect=inputs):
+                config = load_config()
+                config = add_profile(config)
+                save_config(config)
+
+            # Verify profile was added
+            config = load_config()
+            assert "my-codex-api" in config["profiles"]
+            profile_dict = config["profiles"]["my-codex-api"]
+            assert profile_dict["type"] == "codex"
+            assert profile_dict["mode"] == "api"
+
+            # Convert to profile object
+            profile = profile_from_dict(profile_dict)
+            assert isinstance(profile, ApiProfile)
+            assert profile.type == "codex"
+
+            # Test environment preparation
+            env = prepare_environment(profile)
+            # Should only have OPENAI_API_KEY, not OPENAI_BASE_URL
+            assert env["OPENAI_API_KEY"] == "sk-test-key"
+            assert "OPENAI_BASE_URL" not in env
+
+    def test_codex_login_profile(self, tmp_path):
+        """Test codex login mode profile"""
+        config_file = tmp_path / "config.yaml"
+
+        with patch("src.code_ai.config.CONFIG_FILE", config_file):
+            # Initialize config
+            config = {"profiles": {}}
+            save_config(config)
+
+            # Add codex login profile
+            inputs = [
+                "my-codex-login",          # Profile name
+                "codex",                   # Type
+                "login",                   # Mode
+                "~/.codex-profiles/account-a",  # Credentials path
+                "",                        # No proxy
+            ]
+
+            with patch("builtins.input", side_effect=inputs):
+                config = load_config()
+                config = add_profile(config)
+                save_config(config)
+
+            # Verify profile was added
+            config = load_config()
+            assert "my-codex-login" in config["profiles"]
+            profile_dict = config["profiles"]["my-codex-login"]
+            assert profile_dict["type"] == "codex"
+            assert profile_dict["mode"] == "login"
+            assert profile_dict["credentials_path"] == "~/.codex-profiles/account-a"
+
+            # Convert to profile object
+            profile = profile_from_dict(profile_dict)
+            assert isinstance(profile, LoginProfile)
+            assert profile.type == "codex"
+
+            # Test environment preparation
+            env = prepare_environment(profile)
+            # Login mode should NOT have API environment variables
+            assert "OPENAI_API_KEY" not in env
+            # Should have CODEX_CONFIG_DIR with expanded path
+            import os
+            expected_path = os.path.expanduser("~/.codex-profiles/account-a")
+            assert env["CODEX_CONFIG_DIR"] == expected_path

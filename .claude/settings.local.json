@@ -14,7 +14,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(python:*)",
-      "Bash(echo $HOME)"
+      "Bash(echo $HOME)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)"
     ]
   }
 }

@@ -14,7 +14,7 @@ ENV_MAP = {
         "cmd": "gemini",
     },
     "codex": {
-        "env": {"OPENAI_BASE_URL": "base_url", "OPENAI_API_KEY": "api_key"},
+        "env": {"OPENAI_API_KEY": "api_key"},
         "cmd": "codex",
     },
 }
@@ -32,12 +32,14 @@ def prepare_environment(profile):
 
     # Handle authentication based on profile type
     if isinstance(profile, LoginProfile):
-        # Login mode: clear API environment variables and set CLAUDE_CONFIG_DIR
+        # Login mode: clear API environment variables and set CONFIG_DIR
         for env_var in spec["env"]:
             env.pop(env_var, None)
         # Expand ~ to home directory
         credentials_path = os.path.expanduser(profile.credentials_path)
-        env["CLAUDE_CONFIG_DIR"] = credentials_path
+        # Set the appropriate CONFIG_DIR based on profile type
+        config_dir_var = f"{ptype.upper()}_CONFIG_DIR"
+        env[config_dir_var] = credentials_path
     elif isinstance(profile, ApiProfile):
         # API mode: set API environment variables
         for env_var, config_key in spec["env"].items():

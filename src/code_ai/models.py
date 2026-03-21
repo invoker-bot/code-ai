@@ -33,7 +33,7 @@ def profile_from_dict(data: dict) -> BaseProfile:
     mode = data.get("mode", "api")  # Default to api for backward compatibility
     proxy = data.get("proxy")
 
-    if ptype == "claude" and mode == "login":
+    if (ptype == "claude" or ptype == "codex") and mode == "login":
         return LoginProfile(
             name=name,
             type=ptype,

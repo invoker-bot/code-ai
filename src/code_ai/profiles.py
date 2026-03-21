@@ -66,8 +66,8 @@ def add_profile(config):
         "type": ptype,
     }
 
-    # Handle mode for Claude
-    if ptype == "claude":
+    # Handle mode for Claude and Codex
+    if ptype in ("claude", "codex"):
         mode = input("Mode (api/login) [api]: ").strip().lower() or "api"
         if mode not in ("api", "login"):
             print("Error: mode must be 'api' or 'login'.")
@@ -77,17 +77,22 @@ def add_profile(config):
         if mode == "login":
             credentials_path = input("Credentials path (optional, auto-generate if empty): ").strip()
             if not credentials_path:
-                credentials_path = f"~/.claude-profiles/{name}"
+                credentials_path = f"~/.{ptype}-profiles/{name}"
             profile_data["credentials_path"] = credentials_path
         else:  # api mode
             base_url = input("Base URL: ").strip()
             if not base_url:
                 print("Error: base URL cannot be empty.")
                 sys.exit(1)
-            token = input("Auth token: ").strip()
-            profile_data["base_url"] = base_url
-            profile_data["token"] = token
-    else:  # gemini or codex - API mode only
+            if ptype == "claude":
+                token = input("Auth token: ").strip()
+                profile_data["base_url"] = base_url
+                profile_data["token"] = token
+            else:  # codex
+                api_key = input("API key: ").strip()
+                profile_data["base_url"] = base_url
+                profile_data["api_key"] = api_key
+    else:  # gemini - API mode only
         base_url = input("Base URL: ").strip()
         if not base_url:
             print("Error: base URL cannot be empty.")
@@ -117,8 +122,8 @@ def show_profile(config, name):
     print(f"Profile: {name}")
     print(f"Type: {profile.type}")
 
-    # Display mode for Claude type
-    if profile.type == "claude":
+    # Display mode for Claude and Codex types
+    if profile.type in ("claude", "codex"):
         mode = profile_dict.get("mode", "api")
         print(f"Mode: {mode}")
 
@@ -127,10 +132,15 @@ def show_profile(config, name):
             print(f"Credentials Path: {credentials_path}")
         else:  # api mode
             base_url = profile_dict.get("base_url", "N/A")
-            token = profile_dict.get("token", "N/A")
-            print(f"Base URL: {base_url}")
-            print(f"Token: {token}")
-    else:  # gemini or codex
+            if profile.type == "claude":
+                token = profile_dict.get("token", "N/A")
+                print(f"Base URL: {base_url}")
+                print(f"Token: {token}")
+            else:  # codex
+                api_key = profile_dict.get("api_key", "N/A")
+                print(f"Base URL: {base_url}")
+                print(f"API Key: {api_key}")
+    else:  # gemini
         base_url = profile_dict.get("base_url", "N/A")
         api_key = profile_dict.get("api_key", "N/A")
         print(f"Base URL: {base_url}")

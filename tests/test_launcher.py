@@ -72,3 +72,36 @@ def test_prepare_env_login_clears_api_vars():
         # Should be cleared
         assert "ANTHROPIC_BASE_URL" not in env
         assert "ANTHROPIC_AUTH_TOKEN" not in env
+
+
+def test_prepare_env_codex_api_mode():
+    """Test environment preparation for codex API mode"""
+    profile = ApiProfile(
+        name="test-codex-api",
+        type="codex",
+        base_url="https://api.openai.com/v1",
+        api_key="sk-test"
+    )
+
+    env = prepare_environment(profile)
+
+    # Should only have OPENAI_API_KEY, not OPENAI_BASE_URL
+    assert env["OPENAI_API_KEY"] == "sk-test"
+    assert "OPENAI_BASE_URL" not in env
+
+
+def test_prepare_env_codex_login_mode():
+    """Test environment preparation for codex login mode"""
+    profile = LoginProfile(
+        name="test-codex-login",
+        type="codex",
+        credentials_path="~/.codex-profiles/account-a"
+    )
+
+    env = prepare_environment(profile)
+
+    # Should NOT have API environment variables
+    assert "OPENAI_API_KEY" not in env
+    # Should have CODEX_CONFIG_DIR with expanded path
+    expected_path = os.path.expanduser("~/.codex-profiles/account-a")
+    assert env["CODEX_CONFIG_DIR"] == expected_path
