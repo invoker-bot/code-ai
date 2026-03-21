@@ -1,12 +1,9 @@
 import sys
 
-
-VALID_TYPES = ("claude", "gemini", "codex")
+from .models import VALID_TYPES, profile_from_dict
 
 
 def list_profiles(config):
-    from .models import profile_from_dict
-
     profiles = config.get("profiles", {})
     if not profiles:
         print("No profiles configured.")
@@ -97,8 +94,6 @@ def add_profile(config):
 
 
 def show_profile(config, name):
-    from .models import profile_from_dict
-
     profiles = config.get("profiles", {})
     if name not in profiles:
         print(f"Error: profile '{name}' not found.")
