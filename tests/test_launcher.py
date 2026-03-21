@@ -33,8 +33,9 @@ def test_prepare_env_login_mode():
     # Should NOT have API environment variables
     assert "ANTHROPIC_BASE_URL" not in env
     assert "ANTHROPIC_AUTH_TOKEN" not in env
-    # Should have CLAUDE_CONFIG_DIR
-    assert env["CLAUDE_CONFIG_DIR"] == "~/.claude-profiles/account-a"
+    # Should have CLAUDE_CONFIG_DIR with expanded path
+    expected_path = os.path.expanduser("~/.claude-profiles/account-a")
+    assert env["CLAUDE_CONFIG_DIR"] == expected_path
 
 
 def test_prepare_env_with_proxy():

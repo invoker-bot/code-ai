@@ -35,7 +35,9 @@ def prepare_environment(profile):
         # Login mode: clear API environment variables and set CLAUDE_CONFIG_DIR
         for env_var in spec["env"]:
             env.pop(env_var, None)
-        env["CLAUDE_CONFIG_DIR"] = profile.credentials_path
+        # Expand ~ to home directory
+        credentials_path = os.path.expanduser(profile.credentials_path)
+        env["CLAUDE_CONFIG_DIR"] = credentials_path
     elif isinstance(profile, ApiProfile):
         # API mode: set API environment variables
         for env_var, config_key in spec["env"].items():
@@ -79,12 +81,13 @@ def launch(profile_dict, extra_args):
     full_cmd = [cmd_path] + extra_args
 
     if sys.platform == "win32":
-        # On Windows, use subprocess with shell=False for better compatibility
+        # On Windows, use subprocess with full environment
         try:
             result = subprocess.run(full_cmd, env=env, shell=False)
             sys.exit(result.returncode)
         except KeyboardInterrupt:
             sys.exit(130)
     else:
+        # On Unix, update os.environ and use execvp
         os.environ.update(env)
         os.execvp(cmd, [cmd] + extra_args)

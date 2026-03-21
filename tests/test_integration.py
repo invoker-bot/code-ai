@@ -116,8 +116,10 @@ class TestFullWorkflowLoginProfile:
             # Login mode should NOT have API environment variables
             assert "ANTHROPIC_BASE_URL" not in env
             assert "ANTHROPIC_AUTH_TOKEN" not in env
-            # Should have CLAUDE_CONFIG_DIR
-            assert env["CLAUDE_CONFIG_DIR"] == "~/.claude-profiles/account-a"
+            # Should have CLAUDE_CONFIG_DIR with expanded path
+            import os
+            expected_path = os.path.expanduser("~/.claude-profiles/account-a")
+            assert env["CLAUDE_CONFIG_DIR"] == expected_path
             # Should have proxy
             assert env["HTTP_PROXY"] == "http://127.0.0.1:7890"
             assert env["HTTPS_PROXY"] == "http://127.0.0.1:7890"
