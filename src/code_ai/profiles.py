@@ -5,14 +5,37 @@ VALID_TYPES = ("claude", "gemini", "codex")
 
 
 def list_profiles(config):
+    from .models import profile_from_dict
+
     profiles = config.get("profiles", {})
     if not profiles:
         print("No profiles configured.")
         return
-    print(f"{'Name':<20} {'Type':<10} {'Base URL'}")
-    print("-" * 60)
+
+    print(f"{'Name':<20} {'Type':<10} {'Mode':<8} {'Base URL/Credentials':<42} {'Proxy':<20}")
+    print("-" * 100)
+
     for name, p in profiles.items():
-        print(f"{name:<20} {p['type']:<10} {p.get('base_url', '')}")
+        profile = profile_from_dict(p)
+        ptype = profile.type
+        mode = p.get("mode", "api")
+
+        # Determine what to display in the Base URL/Credentials column
+        if mode == "login":
+            url_or_creds = p.get("credentials_path", "")
+        else:  # api mode
+            url_or_creds = p.get("base_url", "")
+
+        # Truncate long strings
+        if len(url_or_creds) > 40:
+            url_or_creds = url_or_creds[:37] + "..."
+
+        # Get proxy or display "-"
+        proxy_display = profile.proxy if profile.proxy else "-"
+        if len(proxy_display) > 20:
+            proxy_display = proxy_display[:17] + "..."
+
+        print(f"{name:<20} {ptype:<10} {mode:<8} {url_or_creds:<42} {proxy_display:<20}")
 
 
 def add_profile(config):
