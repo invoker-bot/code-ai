@@ -4,6 +4,8 @@ from pathlib import Path
 
 import yaml
 
+from .models import profile_from_dict, profile_to_dict, BaseProfile
+
 CONFIG_DIR = Path.home() / ".code-ai"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
@@ -26,3 +28,11 @@ def save_config(data):
 
 def init_config():
     save_config({"profiles": {}})
+
+
+def get_profile_object(config, name: str) -> BaseProfile:
+    """Get a profile object from config by name."""
+    if name not in config.get("profiles", {}):
+        raise ValueError(f"Profile '{name}' not found in config")
+    profile_dict = config["profiles"][name]
+    return profile_from_dict(profile_dict)
