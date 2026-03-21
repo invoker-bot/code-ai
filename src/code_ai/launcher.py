@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import subprocess
+from .models import profile_from_dict, ApiProfile, LoginProfile
 
 ENV_MAP = {
     "claude": {
@@ -19,8 +20,42 @@ ENV_MAP = {
 }
 
 
-def launch(profile, extra_args):
-    ptype = profile["type"]
+def prepare_environment(profile):
+    """Prepare environment variables based on profile type and mode"""
+    env = os.environ.copy()
+    ptype = profile.type
+
+    if ptype not in ENV_MAP:
+        raise ValueError(f"Unknown profile type '{ptype}'")
+
+    spec = ENV_MAP[ptype]
+
+    # Handle authentication based on profile type
+    if isinstance(profile, LoginProfile):
+        # Login mode: clear API environment variables and set CLAUDE_CONFIG_DIR
+        for env_var in spec["env"]:
+            env.pop(env_var, None)
+        env["CLAUDE_CONFIG_DIR"] = profile.credentials_path
+    elif isinstance(profile, ApiProfile):
+        # API mode: set API environment variables
+        for env_var, config_key in spec["env"].items():
+            value = getattr(profile, config_key, None)
+            if value:
+                env[env_var] = value
+
+    # Handle proxy (all modes)
+    if profile.proxy:
+        env["HTTP_PROXY"] = profile.proxy
+        env["HTTPS_PROXY"] = profile.proxy
+
+    return env
+
+
+def launch(profile_dict, extra_args):
+    # Convert dict to dataclass
+    profile = profile_from_dict(profile_dict)
+    ptype = profile.type
+
     if ptype not in ENV_MAP:
         print(f"Error: unknown profile type '{ptype}'.")
         sys.exit(1)
@@ -38,11 +73,8 @@ def launch(profile, extra_args):
         print(f"Error: '{cmd}' not found in PATH. Install it first.")
         sys.exit(1)
 
-    env = os.environ.copy()
-    for env_var, config_key in spec["env"].items():
-        value = profile.get(config_key)
-        if value:
-            env[env_var] = value
+    # Prepare environment
+    env = prepare_environment(profile)
 
     full_cmd = [cmd_path] + extra_args
 
