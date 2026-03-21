@@ -4,7 +4,20 @@ from .models import VALID_TYPES, profile_from_dict
 
 
 def list_profiles(config):
+    from .config import save_config
+
     profiles = config.get("profiles", {})
+
+    # Auto-migrate old profiles without mode field
+    migrated = False
+    for name, p in profiles.items():
+        if "mode" not in p:
+            p["mode"] = "api"
+            migrated = True
+
+    if migrated:
+        save_config(config)
+
     if not profiles:
         print("No profiles configured.")
         return
@@ -62,10 +75,9 @@ def add_profile(config):
         profile_data["mode"] = mode
 
         if mode == "login":
-            credentials_path = input("Credentials path: ").strip()
+            credentials_path = input("Credentials path (optional, auto-generate if empty): ").strip()
             if not credentials_path:
-                print("Error: credentials path cannot be empty.")
-                sys.exit(1)
+                credentials_path = f"~/.claude-profiles/{name}"
             profile_data["credentials_path"] = credentials_path
         else:  # api mode
             base_url = input("Base URL: ").strip()
