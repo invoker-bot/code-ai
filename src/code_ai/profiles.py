@@ -29,26 +29,47 @@ def add_profile(config):
         print(f"Error: type must be one of {VALID_TYPES}.")
         sys.exit(1)
 
-    base_url = input("Base URL: ").strip()
-    if not base_url:
-        print("Error: base URL cannot be empty.")
-        sys.exit(1)
+    profile_data = {
+        "type": ptype,
+    }
 
+    # Handle mode for Claude
     if ptype == "claude":
-        token = input("Auth token: ").strip()
-        config.setdefault("profiles", {})[name] = {
-            "type": ptype,
-            "base_url": base_url,
-            "token": token,
-        }
-    else:
-        api_key = input("API key: ").strip()
-        config.setdefault("profiles", {})[name] = {
-            "type": ptype,
-            "base_url": base_url,
-            "api_key": api_key,
-        }
+        mode = input("Mode (api/login) [api]: ").strip().lower() or "api"
+        if mode not in ("api", "login"):
+            print("Error: mode must be 'api' or 'login'.")
+            sys.exit(1)
+        profile_data["mode"] = mode
 
+        if mode == "login":
+            credentials_path = input("Credentials path: ").strip()
+            if not credentials_path:
+                print("Error: credentials path cannot be empty.")
+                sys.exit(1)
+            profile_data["credentials_path"] = credentials_path
+        else:  # api mode
+            base_url = input("Base URL: ").strip()
+            if not base_url:
+                print("Error: base URL cannot be empty.")
+                sys.exit(1)
+            token = input("Auth token: ").strip()
+            profile_data["base_url"] = base_url
+            profile_data["token"] = token
+    else:  # gemini or codex - API mode only
+        base_url = input("Base URL: ").strip()
+        if not base_url:
+            print("Error: base URL cannot be empty.")
+            sys.exit(1)
+        api_key = input("API key: ").strip()
+        profile_data["base_url"] = base_url
+        profile_data["api_key"] = api_key
+
+    # Optional proxy for all types
+    proxy = input("Proxy (optional, e.g., http://127.0.0.1:7890): ").strip()
+    if proxy:
+        profile_data["proxy"] = proxy
+
+    config.setdefault("profiles", {})[name] = profile_data
     return config
 
 
