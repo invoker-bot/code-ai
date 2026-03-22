@@ -1,98 +1,98 @@
 # ai-code-switcher
 
-一个用于切换 AI 编码工具配置文件并启动相应 CLI 的工具。
+Switch AI coding tool profiles and launch the correct CLI.
 
-## 功能特性
+## Features
 
-- 管理多个 AI 编码工具配置文件（Claude、Codex、Gemini）
-- 快速切换不同的配置文件
-- 统一的命令行接口
-- 支持一键升级所有 AI CLI 工具
+- Manage multiple AI coding tool profiles for Claude, Codex, and Gemini
+- Switch between API-mode and login-mode profiles
+- Launch the matching CLI through one command entrypoint
+- Upgrade supported AI CLIs through npm
 
-## 安装
+## Install
 
 ```bash
 pip install -e .
 ```
 
-## 使用方法
+## Usage
 
-### 列出所有配置文件
+List profiles:
 
 ```bash
 code-ai list
 ```
 
-### 添加新配置文件
+Add a profile:
 
 ```bash
 code-ai add
 ```
 
-### 使用指定配置文件启动
+Show one profile:
 
 ```bash
-# 使用 fox-gemini 配置启动 Gemini CLI
-code-ai fox-gemini
-
-# 使用 4399 配置启动 Claude CLI
-code-ai 4399
-
-# 传递额外参数
-code-ai fox-claude -p "hi"
+code-ai show <profile-name>
 ```
 
-### 删除配置文件
+Launch a profile:
+
+```bash
+code-ai run fox-gemini
+code-ai run 4399
+code-ai run fox-claude -p "hi"
+```
+
+Remove a profile:
 
 ```bash
 code-ai remove <profile-name>
 ```
 
-### 升级 AI CLI 工具
+Upgrade supported CLIs:
 
 ```bash
 code-ai upgrade
 ```
 
-该命令会通过 npm 升级以下工具：
-- @anthropic-ai/claude-code
-- @openai/codex
-- @google/gemini-cli
+This upgrades:
 
-### 查看版本
+- `@anthropic-ai/claude-code`
+- `@openai/codex`
+- `@google/gemini-cli`
+
+Version:
 
 ```bash
 code-ai --version
 ```
 
-### 查看帮助
+Help:
 
 ```bash
 code-ai --help
 ```
 
-## 配置
+## Configuration
 
-配置文件存储在用户目录下，包含各个配置文件的设置信息。
+Profiles are stored under `~/.code-ai/config.yaml`.
 
-## 开发
+## Project Layout
 
-### 项目结构
-
-```
+```text
 src/code_ai/
-├── __init__.py      # 包初始化
-├── cli.py           # 命令行入口
-├── config.py        # 配置管理
-├── launcher.py      # 启动器
-└── profiles.py      # 配置文件管理
+|-- __init__.py
+|-- cli.py
+|-- config.py
+|-- launcher.py
+`-- profiles.py
 ```
 
-### 依赖
+## Requirements
 
 - Python >= 3.8
 - pyyaml >= 5.0
 
-## 许可证
+## License
 
 MIT

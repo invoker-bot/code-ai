@@ -1,311 +1,278 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from contextlib import contextmanager
+from pathlib import Path
+import shutil
+import os
+from unittest.mock import patch
+from uuid import uuid4
+
 from src.code_ai.config import load_config, save_config
 from src.code_ai.profiles import add_profile, list_profiles, show_profile, remove_profile
 from src.code_ai.models import profile_from_dict, ApiProfile, LoginProfile
 from src.code_ai.launcher import prepare_environment
 
 
+@contextmanager
+def temp_config_file():
+    root = Path.cwd() / ".test-artifacts" / str(uuid4())
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        yield root / "config.yaml"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 class TestFullWorkflowApiProfile:
     """Test complete workflow for API profile (Claude)"""
 
-    def test_full_workflow_api_profile(self, monkeypatch, tmp_path):
+    def test_full_workflow_api_profile(self):
         """Test full workflow: add API profile -> show -> list -> remove"""
-        # Mock config file location
-        config_file = tmp_path / "config.yaml"
-
-        with patch("src.code_ai.config.CONFIG_FILE", config_file):
-            # Step 1: Initialize config
-            config = {"profiles": {}}
-            save_config(config)
-
-            # Step 2: Add API profile interactively
-            inputs = [
-                "my-claude-api",           # Profile name
-                "claude",                  # Type
-                "api",                     # Mode
-                "https://api.anthropic.com",  # Base URL
-                "sk-ant-test-token",       # Auth token
-                "",                        # No proxy
-            ]
-
-            with patch("builtins.input", side_effect=inputs):
-                config = load_config()
-                config = add_profile(config)
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                config = {"profiles": {}}
                 save_config(config)
 
-            # Step 3: Verify profile was added
-            config = load_config()
-            assert "my-claude-api" in config["profiles"]
-            profile_dict = config["profiles"]["my-claude-api"]
-            assert profile_dict["type"] == "claude"
-            assert profile_dict["mode"] == "api"
-            assert profile_dict["base_url"] == "https://api.anthropic.com"
-            assert profile_dict["token"] == "sk-ant-test-token"
+                inputs = [
+                    "my-claude-api",
+                    "claude",
+                    "api",
+                    "https://api.anthropic.com",
+                    "sk-ant-test-token",
+                    "",
+                ]
 
-            # Step 4: Convert to profile object and verify
-            profile = profile_from_dict(profile_dict)
-            assert isinstance(profile, ApiProfile)
-            assert profile.type == "claude"
+                with patch("builtins.input", side_effect=inputs):
+                    config = load_config()
+                    config = add_profile(config)
+                    save_config(config)
 
-            # Step 5: Test environment preparation
-            env = prepare_environment(profile)
-            assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
-            assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test-token"
+                config = load_config()
+                assert "my-claude-api" in config["profiles"]
+                profile_dict = config["profiles"]["my-claude-api"]
+                assert profile_dict["name"] == "my-claude-api"
+                assert profile_dict["type"] == "claude"
+                assert profile_dict["mode"] == "api"
+                assert profile_dict["base_url"] == "https://api.anthropic.com"
+                assert profile_dict["token"] == "sk-ant-test-token"
 
-            # Step 6: Show profile
-            with patch("builtins.print") as mock_print:
-                show_profile(config, "my-claude-api")
-                # Verify show_profile was called and printed something
-                assert mock_print.called
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, ApiProfile)
+                assert profile.name == "my-claude-api"
+                assert profile.type == "claude"
 
-            # Step 7: List profiles
-            with patch("builtins.print") as mock_print:
-                list_profiles(config)
-                # Verify list_profiles was called and printed something
-                assert mock_print.called
+                env = prepare_environment(profile)
+                assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
+                assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test-token"
 
-            # Step 8: Remove profile
-            config = remove_profile(config, "my-claude-api")
-            assert "my-claude-api" not in config["profiles"]
+                with patch("builtins.print") as mock_print:
+                    show_profile(config, "my-claude-api")
+                    assert mock_print.called
+
+                with patch("builtins.print") as mock_print:
+                    list_profiles(config)
+                    assert mock_print.called
+
+                config = remove_profile(config, "my-claude-api")
+                assert "my-claude-api" not in config["profiles"]
 
 
 class TestFullWorkflowLoginProfile:
     """Test complete workflow for login profile (Claude)"""
 
-    def test_full_workflow_login_profile(self, monkeypatch, tmp_path):
+    def test_full_workflow_login_profile(self):
         """Test full workflow: add login profile -> show -> list -> remove"""
-        # Mock config file location
-        config_file = tmp_path / "config.yaml"
-
-        with patch("src.code_ai.config.CONFIG_FILE", config_file):
-            # Step 1: Initialize config
-            config = {"profiles": {}}
-            save_config(config)
-
-            # Step 2: Add login profile interactively
-            inputs = [
-                "my-claude-login",         # Profile name
-                "claude",                  # Type
-                "login",                   # Mode
-                "~/.claude-profiles/account-a",  # Credentials path
-                "http://127.0.0.1:7890",   # Proxy
-            ]
-
-            with patch("builtins.input", side_effect=inputs):
-                config = load_config()
-                config = add_profile(config)
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                config = {"profiles": {}}
                 save_config(config)
 
-            # Step 3: Verify profile was added
-            config = load_config()
-            assert "my-claude-login" in config["profiles"]
-            profile_dict = config["profiles"]["my-claude-login"]
-            assert profile_dict["type"] == "claude"
-            assert profile_dict["mode"] == "login"
-            assert profile_dict["credentials_path"] == "~/.claude-profiles/account-a"
-            assert profile_dict["proxy"] == "http://127.0.0.1:7890"
+                inputs = [
+                    "my-claude-login",
+                    "claude",
+                    "login",
+                    "~/.claude-profiles/account-a",
+                    "http://127.0.0.1:7890",
+                ]
 
-            # Step 4: Convert to profile object and verify
-            profile = profile_from_dict(profile_dict)
-            assert isinstance(profile, LoginProfile)
-            assert profile.type == "claude"
+                with patch("builtins.input", side_effect=inputs):
+                    config = load_config()
+                    config = add_profile(config)
+                    save_config(config)
 
-            # Step 5: Test environment preparation
-            env = prepare_environment(profile)
-            # Login mode should NOT have API environment variables
-            assert "ANTHROPIC_BASE_URL" not in env
-            assert "ANTHROPIC_AUTH_TOKEN" not in env
-            # Should have CLAUDE_CONFIG_DIR with expanded path
-            import os
-            expected_path = os.path.expanduser("~/.claude-profiles/account-a")
-            assert env["CLAUDE_CONFIG_DIR"] == expected_path
-            # Should have proxy
-            assert env["HTTP_PROXY"] == "http://127.0.0.1:7890"
-            assert env["HTTPS_PROXY"] == "http://127.0.0.1:7890"
+                config = load_config()
+                assert "my-claude-login" in config["profiles"]
+                profile_dict = config["profiles"]["my-claude-login"]
+                assert profile_dict["name"] == "my-claude-login"
+                assert profile_dict["type"] == "claude"
+                assert profile_dict["mode"] == "login"
+                assert profile_dict["credentials_path"] == "~/.claude-profiles/account-a"
+                assert profile_dict["proxy"] == "http://127.0.0.1:7890"
 
-            # Step 6: Show profile
-            with patch("builtins.print") as mock_print:
-                show_profile(config, "my-claude-login")
-                # Verify show_profile was called and printed something
-                assert mock_print.called
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, LoginProfile)
+                assert profile.name == "my-claude-login"
+                assert profile.type == "claude"
 
-            # Step 7: List profiles
-            with patch("builtins.print") as mock_print:
-                list_profiles(config)
-                # Verify list_profiles was called and printed something
-                assert mock_print.called
+                env = prepare_environment(profile)
+                assert "ANTHROPIC_BASE_URL" not in env
+                assert "ANTHROPIC_AUTH_TOKEN" not in env
+                assert env["CLAUDE_CONFIG_DIR"] == os.path.expanduser("~/.claude-profiles/account-a")
+                assert env["HTTP_PROXY"] == "http://127.0.0.1:7890"
+                assert env["HTTPS_PROXY"] == "http://127.0.0.1:7890"
 
-            # Step 8: Remove profile
-            config = remove_profile(config, "my-claude-login")
-            assert "my-claude-login" not in config["profiles"]
+                with patch("builtins.print") as mock_print:
+                    show_profile(config, "my-claude-login")
+                    assert mock_print.called
+
+                with patch("builtins.print") as mock_print:
+                    list_profiles(config)
+                    assert mock_print.called
+
+                config = remove_profile(config, "my-claude-login")
+                assert "my-claude-login" not in config["profiles"]
 
 
 class TestBackwardCompatibility:
     """Test backward compatibility with legacy profiles"""
 
-    def test_backward_compatibility(self, tmp_path):
-        """Test that legacy profiles (without mode field) still work"""
-        # Mock config file location
-        config_file = tmp_path / "config.yaml"
-
-        with patch("src.code_ai.config.CONFIG_FILE", config_file):
-            # Step 1: Create a legacy profile (without mode field)
-            legacy_config = {
-                "profiles": {
-                    "legacy-claude": {
-                        "name": "legacy-claude",
-                        "type": "claude",
-                        "base_url": "https://api.anthropic.com",
-                        "token": "sk-ant-legacy-token"
-                        # Note: no "mode" field
+    def test_backward_compatibility(self):
+        """Test that legacy profiles without name/mode still work and are migrated"""
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                legacy_config = {
+                    "profiles": {
+                        "legacy-claude": {
+                            "type": "claude",
+                            "base_url": "https://api.anthropic.com",
+                            "token": "sk-ant-legacy-token",
+                        }
                     }
                 }
-            }
-            save_config(legacy_config)
+                save_config(legacy_config)
 
-            # Step 2: Load config and verify it works
-            config = load_config()
-            assert "legacy-claude" in config["profiles"]
-            profile_dict = config["profiles"]["legacy-claude"]
+                config = load_config()
+                assert "legacy-claude" in config["profiles"]
+                profile_dict = config["profiles"]["legacy-claude"]
+                assert profile_dict["name"] == "legacy-claude"
+                assert profile_dict["mode"] == "api"
 
-            # Step 3: Convert to profile object
-            # Should default to API mode
-            profile = profile_from_dict(profile_dict)
-            assert isinstance(profile, ApiProfile)
-            assert profile.base_url == "https://api.anthropic.com"
-            assert profile.token == "sk-ant-legacy-token"
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, ApiProfile)
+                assert profile.name == "legacy-claude"
+                assert profile.base_url == "https://api.anthropic.com"
+                assert profile.token == "sk-ant-legacy-token"
 
-            # Step 4: Test environment preparation
-            env = prepare_environment(profile)
-            assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
-            assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-legacy-token"
+                env = prepare_environment(profile)
+                assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
+                assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-legacy-token"
 
-            # Step 5: Show profile should work
-            with patch("builtins.print") as mock_print:
-                show_profile(config, "legacy-claude")
-                assert mock_print.called
+                with patch("builtins.print") as mock_print:
+                    show_profile(config, "legacy-claude")
+                    assert mock_print.called
 
-            # Step 6: List profiles should work
-            with patch("builtins.print") as mock_print:
-                list_profiles(config)
-                assert mock_print.called
+                with patch("builtins.print") as mock_print:
+                    list_profiles(config)
+                    assert mock_print.called
 
-            # Step 7: Test with other profile types (gemini, codex)
-            gemini_config = {
-                "profiles": {
-                    "legacy-gemini": {
-                        "name": "legacy-gemini",
-                        "type": "gemini",
-                        "base_url": "https://generativelanguage.googleapis.com",
-                        "api_key": "AIza-test-key"
-                        # Note: no "mode" field
+                gemini_config = {
+                    "profiles": {
+                        "legacy-gemini": {
+                            "type": "gemini",
+                            "base_url": "https://generativelanguage.googleapis.com",
+                            "api_key": "AIza-test-key",
+                        }
                     }
                 }
-            }
-            save_config(gemini_config)
+                save_config(gemini_config)
 
-            config = load_config()
-            profile_dict = config["profiles"]["legacy-gemini"]
-            profile = profile_from_dict(profile_dict)
+                config = load_config()
+                profile_dict = config["profiles"]["legacy-gemini"]
+                assert profile_dict["name"] == "legacy-gemini"
+                assert profile_dict["mode"] == "api"
 
-            # Should default to API mode
-            assert isinstance(profile, ApiProfile)
-            assert profile.type == "gemini"
-            assert profile.api_key == "AIza-test-key"
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, ApiProfile)
+                assert profile.name == "legacy-gemini"
+                assert profile.type == "gemini"
+                assert profile.api_key == "AIza-test-key"
 
-            # Test environment preparation
-            env = prepare_environment(profile)
-            assert env["GOOGLE_GEMINI_BASE_URL"] == "https://generativelanguage.googleapis.com"
-            assert env["GEMINI_API_KEY"] == "AIza-test-key"
+                env = prepare_environment(profile)
+                assert env["GOOGLE_GEMINI_BASE_URL"] == "https://generativelanguage.googleapis.com"
+                assert env["GEMINI_API_KEY"] == "AIza-test-key"
 
 
 class TestCodexProfiles:
     """Test codex profile workflows"""
 
-    def test_codex_api_profile(self, tmp_path):
+    def test_codex_api_profile(self):
         """Test codex API mode profile"""
-        config_file = tmp_path / "config.yaml"
-
-        with patch("src.code_ai.config.CONFIG_FILE", config_file):
-            # Initialize config
-            config = {"profiles": {}}
-            save_config(config)
-
-            # Add codex API profile
-            inputs = [
-                "my-codex-api",            # Profile name
-                "codex",                   # Type
-                "api",                     # Mode
-                "https://api.openai.com/v1",  # Base URL
-                "sk-test-key",             # API key
-                "",                        # No proxy
-            ]
-
-            with patch("builtins.input", side_effect=inputs):
-                config = load_config()
-                config = add_profile(config)
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                config = {"profiles": {}}
                 save_config(config)
 
-            # Verify profile was added
-            config = load_config()
-            assert "my-codex-api" in config["profiles"]
-            profile_dict = config["profiles"]["my-codex-api"]
-            assert profile_dict["type"] == "codex"
-            assert profile_dict["mode"] == "api"
+                inputs = [
+                    "my-codex-api",
+                    "codex",
+                    "api",
+                    "https://api.openai.com/v1",
+                    "sk-test-key",
+                    "",
+                ]
 
-            # Convert to profile object
-            profile = profile_from_dict(profile_dict)
-            assert isinstance(profile, ApiProfile)
-            assert profile.type == "codex"
+                with patch("builtins.input", side_effect=inputs):
+                    config = load_config()
+                    config = add_profile(config)
+                    save_config(config)
 
-            # Test environment preparation
-            env = prepare_environment(profile)
-            # Should have both OPENAI_API_KEY and OPENAI_BASE_URL
-            assert env["OPENAI_API_KEY"] == "sk-test-key"
-            assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
+                config = load_config()
+                assert "my-codex-api" in config["profiles"]
+                profile_dict = config["profiles"]["my-codex-api"]
+                assert profile_dict["name"] == "my-codex-api"
+                assert profile_dict["type"] == "codex"
+                assert profile_dict["mode"] == "api"
 
-    def test_codex_login_profile(self, tmp_path):
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, ApiProfile)
+                assert profile.name == "my-codex-api"
+                assert profile.type == "codex"
+
+                env = prepare_environment(profile)
+                assert env["OPENAI_API_KEY"] == "sk-test-key"
+                assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
+
+    def test_codex_login_profile(self):
         """Test codex login mode profile"""
-        config_file = tmp_path / "config.yaml"
-
-        with patch("src.code_ai.config.CONFIG_FILE", config_file):
-            # Initialize config
-            config = {"profiles": {}}
-            save_config(config)
-
-            # Add codex login profile
-            inputs = [
-                "my-codex-login",          # Profile name
-                "codex",                   # Type
-                "login",                   # Mode
-                "~/.codex-profiles/account-a",  # Credentials path
-                "",                        # No proxy
-            ]
-
-            with patch("builtins.input", side_effect=inputs):
-                config = load_config()
-                config = add_profile(config)
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                config = {"profiles": {}}
                 save_config(config)
 
-            # Verify profile was added
-            config = load_config()
-            assert "my-codex-login" in config["profiles"]
-            profile_dict = config["profiles"]["my-codex-login"]
-            assert profile_dict["type"] == "codex"
-            assert profile_dict["mode"] == "login"
-            assert profile_dict["credentials_path"] == "~/.codex-profiles/account-a"
+                inputs = [
+                    "my-codex-login",
+                    "codex",
+                    "login",
+                    "~/.codex-profiles/account-a",
+                    "",
+                ]
 
-            # Convert to profile object
-            profile = profile_from_dict(profile_dict)
-            assert isinstance(profile, LoginProfile)
-            assert profile.type == "codex"
+                with patch("builtins.input", side_effect=inputs):
+                    config = load_config()
+                    config = add_profile(config)
+                    save_config(config)
 
-            # Test environment preparation
-            env = prepare_environment(profile)
-            # Login mode should NOT have API environment variables
-            assert "OPENAI_API_KEY" not in env
-            # Should have CODEX_HOME with expanded path
-            import os
-            expected_path = os.path.expanduser("~/.codex-profiles/account-a")
-            assert env["CODEX_HOME"] == expected_path
+                config = load_config()
+                assert "my-codex-login" in config["profiles"]
+                profile_dict = config["profiles"]["my-codex-login"]
+                assert profile_dict["name"] == "my-codex-login"
+                assert profile_dict["type"] == "codex"
+                assert profile_dict["mode"] == "login"
+                assert profile_dict["credentials_path"] == "~/.codex-profiles/account-a"
+
+                profile = profile_from_dict(profile_dict)
+                assert isinstance(profile, LoginProfile)
+                assert profile.name == "my-codex-login"
+                assert profile.type == "codex"
+
+                env = prepare_environment(profile)
+                assert "OPENAI_API_KEY" not in env
+                assert env["CODEX_HOME"] == os.path.expanduser("~/.codex-profiles/account-a")

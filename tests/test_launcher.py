@@ -20,6 +20,33 @@ def test_prepare_env_api_mode():
     assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test"
 
 
+def test_prepare_env_api_mode_clears_stale_managed_vars():
+    """API mode should not inherit stale managed vars from the parent shell"""
+    with patch.dict(os.environ, {
+        "ANTHROPIC_BASE_URL": "https://old.url",
+        "ANTHROPIC_AUTH_TOKEN": "old-token",
+        "CLAUDE_CONFIG_DIR": "/tmp/old-claude",
+        "OPENAI_API_KEY": "old-openai-key",
+        "HTTP_PROXY": "http://127.0.0.1:9999",
+        "HTTPS_PROXY": "http://127.0.0.1:9999",
+    }):
+        profile = ApiProfile(
+            name="test-api",
+            type="claude",
+            base_url="https://api.anthropic.com",
+            token="sk-ant-test"
+        )
+
+        env = prepare_environment(profile)
+
+        assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
+        assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test"
+        assert "CLAUDE_CONFIG_DIR" not in env
+        assert "OPENAI_API_KEY" not in env
+        assert "HTTP_PROXY" not in env
+        assert "HTTPS_PROXY" not in env
+
+
 def test_prepare_env_login_mode():
     """Test environment preparation for login mode"""
     profile = LoginProfile(

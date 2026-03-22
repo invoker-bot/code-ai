@@ -19,10 +19,35 @@ ENV_MAP = {
     },
 }
 
+CONFIG_DIR_ENV_VARS = {
+    "claude": "CLAUDE_CONFIG_DIR",
+    "codex": "CODEX_HOME",
+}
+
+PROXY_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "http_proxy",
+    "https_proxy",
+)
+
+MANAGED_ENV_VARS = frozenset(
+    env_var
+    for spec in ENV_MAP.values()
+    for env_var in spec["env"]
+) | frozenset(CONFIG_DIR_ENV_VARS.values()) | frozenset(PROXY_ENV_VARS)
+
+
+def clear_managed_environment(env):
+    """Remove environment variables managed by this tool."""
+    for env_var in MANAGED_ENV_VARS:
+        env.pop(env_var, None)
+
 
 def prepare_environment(profile):
     """Prepare environment variables based on profile type and mode"""
     env = os.environ.copy()
+    clear_managed_environment(env)
     ptype = profile.type
 
     if ptype not in ENV_MAP:
@@ -32,23 +57,21 @@ def prepare_environment(profile):
 
     # Handle authentication based on profile type
     if isinstance(profile, LoginProfile):
-        # Login mode: clear API environment variables and set CONFIG_DIR
-        for env_var in spec["env"]:
-            env.pop(env_var, None)
         # Expand ~ to home directory
         credentials_path = os.path.expanduser(profile.credentials_path)
         # Set the appropriate config dir env var based on profile type
         # Claude uses CLAUDE_CONFIG_DIR, Codex uses CODEX_HOME
-        config_dir_vars = {"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"}
-        config_dir_var = config_dir_vars.get(ptype)
+        config_dir_var = CONFIG_DIR_ENV_VARS.get(ptype)
         if config_dir_var:
+            if not credentials_path:
+                raise ValueError(f"Login profile '{profile.name or ptype}' is missing credentials_path")
             os.makedirs(credentials_path, exist_ok=True)
             # For codex: ensure config.toml exists with default openai provider
             # to prevent inheriting custom providers from ~/.codex/config.toml
             if ptype == "codex":
                 config_toml = os.path.join(credentials_path, "config.toml")
                 if not os.path.exists(config_toml):
-                    with open(config_toml, "w") as f:
+                    with open(config_toml, "w", encoding="utf-8") as f:
                         f.write('model_provider = "openai"\n')
             env[config_dir_var] = credentials_path
     elif isinstance(profile, ApiProfile):
@@ -60,8 +83,8 @@ def prepare_environment(profile):
 
     # Handle proxy (all modes)
     if profile.proxy:
-        env["HTTP_PROXY"] = profile.proxy
-        env["HTTPS_PROXY"] = profile.proxy
+        for env_var in PROXY_ENV_VARS:
+            env[env_var] = profile.proxy
 
     return env
 

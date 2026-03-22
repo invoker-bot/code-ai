@@ -4,19 +4,7 @@ from .models import VALID_TYPES, profile_from_dict
 
 
 def list_profiles(config):
-    from .config import save_config
-
     profiles = config.get("profiles", {})
-
-    # Auto-migrate old profiles without mode field
-    migrated = False
-    for name, p in profiles.items():
-        if "mode" not in p:
-            p["mode"] = "api"
-            migrated = True
-
-    if migrated:
-        save_config(config)
 
     if not profiles:
         print("No profiles configured.")
@@ -63,6 +51,7 @@ def add_profile(config):
         sys.exit(1)
 
     profile_data = {
+        "name": name,
         "type": ptype,
     }
 

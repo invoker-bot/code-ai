@@ -17,6 +17,19 @@ def load_config():
         data = yaml.safe_load(f)
     if not data or "profiles" not in data:
         data = {"profiles": {}}
+    migrated = False
+    profiles = data.get("profiles", {})
+    for name, profile in profiles.items():
+        if not isinstance(profile, dict):
+            continue
+        if "name" not in profile:
+            profile["name"] = name
+            migrated = True
+        if "mode" not in profile:
+            profile["mode"] = "api"
+            migrated = True
+    if migrated:
+        save_config(data)
     return data
 
 
