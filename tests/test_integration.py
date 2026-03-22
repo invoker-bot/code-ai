@@ -261,9 +261,9 @@ class TestCodexProfiles:
 
             # Test environment preparation
             env = prepare_environment(profile)
-            # Should only have OPENAI_API_KEY, not OPENAI_BASE_URL
+            # Should have both OPENAI_API_KEY and OPENAI_BASE_URL
             assert env["OPENAI_API_KEY"] == "sk-test-key"
-            assert "OPENAI_BASE_URL" not in env
+            assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
 
     def test_codex_login_profile(self, tmp_path):
         """Test codex login mode profile"""
@@ -305,7 +305,7 @@ class TestCodexProfiles:
             env = prepare_environment(profile)
             # Login mode should NOT have API environment variables
             assert "OPENAI_API_KEY" not in env
-            # Should have CODEX_CONFIG_DIR with expanded path
+            # Should have CODEX_HOME with expanded path
             import os
             expected_path = os.path.expanduser("~/.codex-profiles/account-a")
-            assert env["CODEX_CONFIG_DIR"] == expected_path
+            assert env["CODEX_HOME"] == expected_path

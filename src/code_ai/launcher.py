@@ -14,7 +14,7 @@ ENV_MAP = {
         "cmd": "gemini",
     },
     "codex": {
-        "env": {"OPENAI_API_KEY": "api_key"},
+        "env": {"OPENAI_BASE_URL": "base_url", "OPENAI_API_KEY": "api_key"},
         "cmd": "codex",
     },
 }
@@ -37,9 +37,20 @@ def prepare_environment(profile):
             env.pop(env_var, None)
         # Expand ~ to home directory
         credentials_path = os.path.expanduser(profile.credentials_path)
-        # Set the appropriate CONFIG_DIR based on profile type
-        config_dir_var = f"{ptype.upper()}_CONFIG_DIR"
-        env[config_dir_var] = credentials_path
+        # Set the appropriate config dir env var based on profile type
+        # Claude uses CLAUDE_CONFIG_DIR, Codex uses CODEX_HOME
+        config_dir_vars = {"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"}
+        config_dir_var = config_dir_vars.get(ptype)
+        if config_dir_var:
+            os.makedirs(credentials_path, exist_ok=True)
+            # For codex: ensure config.toml exists with default openai provider
+            # to prevent inheriting custom providers from ~/.codex/config.toml
+            if ptype == "codex":
+                config_toml = os.path.join(credentials_path, "config.toml")
+                if not os.path.exists(config_toml):
+                    with open(config_toml, "w") as f:
+                        f.write('model_provider = "openai"\n')
+            env[config_dir_var] = credentials_path
     elif isinstance(profile, ApiProfile):
         # API mode: set API environment variables
         for env_var, config_key in spec["env"].items():

@@ -22,7 +22,7 @@ class ApiProfile(BaseProfile):
 
 @dataclass
 class LoginProfile(BaseProfile):
-    """Login mode: authenticate via OAuth credentials directory (Claude only)"""
+    """Login mode: authenticate via OAuth credentials directory (Claude/Codex)"""
     credentials_path: str = ""       # Path to existing OAuth credentials
 
 

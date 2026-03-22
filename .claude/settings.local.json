@@ -16,7 +16,19 @@
       "Bash(python:*)",
       "Bash(echo $HOME)",
       "Bash(git push:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(code-ai --version)",
+      "Bash(code-ai list:*)",
+      "Bash(codex --help)",
+      "Bash(grep -rn \"OPENAI_API_KEY_ENV_VAR\\\\|auth_token\\\\|ApiKeySource\\\\|CredentialsFile\\\\|\\\\.env\\\\b\" --include=\"*.rs\" codex-rs/core/src/auth*)",
+      "Bash(ls codex-rs/core/src/auth*)",
+      "Read(//c/Users/InvokerBot/.codex-profiles/codex-plus/**)",
+      "Bash(CODEX_HOME=\"$HOME/.codex-profiles/codex-plus\" codex debug config)",
+      "Bash(CODEX_HOME=\"$HOME/.codex-profiles/codex-plus\" codex debug --help 2>&1)",
+      "Bash(CODEX_HOME=\"$HOME/.codex-profiles/codex-plus\" codex features)",
+      "Bash(CODEX_HOME=\"$HOME/.codex-profiles/codex-plus\" codex -c 'model_provider=\"openai\"' --version 2>&1)",
+      "Bash(ls -la ~/.codex-profiles/codex-plus/*.json)",
+      "Bash(ls -la ~/.codex-profiles/codex-plus/*.sqlite)"
     ]
   }
 }
