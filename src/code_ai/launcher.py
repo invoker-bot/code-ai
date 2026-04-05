@@ -86,6 +86,10 @@ def prepare_environment(profile):
         for env_var in PROXY_ENV_VARS:
             env[env_var] = profile.proxy
 
+    # On Windows, enable PowerShell tool for Claude Code
+    if sys.platform == "win32" and ptype == "claude":
+        env.setdefault("CLAUDE_CODE_USE_POWERSHELL_TOOL", "1")
+
     return env
 
 
