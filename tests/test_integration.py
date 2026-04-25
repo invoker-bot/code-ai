@@ -37,7 +37,8 @@ class TestFullWorkflowApiProfile:
                     "api",
                     "https://api.anthropic.com",
                     "sk-ant-test-token",
-                    "",
+                    "",   # proxy
+                    "",   # default_args
                 ]
 
                 with patch("builtins.input", side_effect=inputs):
@@ -91,6 +92,7 @@ class TestFullWorkflowLoginProfile:
                     "login",
                     "~/.claude-profiles/account-a",
                     "http://127.0.0.1:7890",
+                    "",   # default_args
                 ]
 
                 with patch("builtins.input", side_effect=inputs):
@@ -216,7 +218,8 @@ class TestCodexProfiles:
                     "api",
                     "https://api.openai.com/v1",
                     "sk-test-key",
-                    "",
+                    "",   # proxy
+                    "",   # default_args
                 ]
 
                 with patch("builtins.input", side_effect=inputs):
@@ -240,6 +243,31 @@ class TestCodexProfiles:
                 assert env["OPENAI_API_KEY"] == "sk-test-key"
                 assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
 
+    def test_add_profile_captures_default_args(self):
+        """`code-ai add` records non-empty default_args as a string in YAML."""
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                save_config({"profiles": {}})
+
+                inputs = [
+                    "with-defaults",
+                    "claude",
+                    "api",
+                    "https://api.anthropic.com",
+                    "sk-ant-test",
+                    "",                                  # proxy
+                    "--model claude-opus-4-5 -p hi",     # default_args
+                ]
+
+                with patch("builtins.input", side_effect=inputs):
+                    config = load_config()
+                    config = add_profile(config)
+                    save_config(config)
+
+                config = load_config()
+                profile_dict = config["profiles"]["with-defaults"]
+                assert profile_dict["default_args"] == "--model claude-opus-4-5 -p hi"
+
     def test_codex_login_profile(self):
         """Test codex login mode profile"""
         with temp_config_file() as config_file:
@@ -252,7 +280,8 @@ class TestCodexProfiles:
                     "codex",
                     "login",
                     "~/.codex-profiles/account-a",
-                    "",
+                    "",   # proxy
+                    "",   # default_args
                 ]
 
                 with patch("builtins.input", side_effect=inputs):

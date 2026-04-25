@@ -113,3 +113,55 @@ def test_profile_to_dict_login():
 def test_valid_types():
     """Test VALID_TYPES constant"""
     assert VALID_TYPES == ("claude", "gemini", "codex")
+
+
+def test_profile_from_dict_default_args_list():
+    """default_args stored as a YAML list survives the round-trip."""
+    data = {
+        "name": "p",
+        "type": "claude",
+        "mode": "api",
+        "base_url": "https://api.anthropic.com",
+        "token": "sk-ant-x",
+        "default_args": ["--model", "claude-opus-4-5"],
+    }
+    profile = profile_from_dict(data)
+    assert profile.default_args == ["--model", "claude-opus-4-5"]
+
+
+def test_profile_from_dict_default_args_string():
+    """default_args stored as a single string is preserved (split happens later)."""
+    data = {
+        "name": "p",
+        "type": "claude",
+        "mode": "login",
+        "credentials_path": "~/.claude-profiles/p",
+        "default_args": "--model claude-opus-4-5",
+    }
+    profile = profile_from_dict(data)
+    assert profile.default_args == "--model claude-opus-4-5"
+
+
+def test_profile_from_dict_default_args_missing_is_none():
+    """Profiles without default_args default to None (backward-compat)."""
+    data = {
+        "name": "p",
+        "type": "gemini",
+        "base_url": "https://generativelanguage.googleapis.com",
+        "api_key": "AIza-x",
+    }
+    profile = profile_from_dict(data)
+    assert profile.default_args is None
+
+
+def test_profile_to_dict_default_args_roundtrip():
+    """Setting default_args on a dataclass round-trips through profile_to_dict."""
+    profile = ApiProfile(
+        name="p",
+        type="claude",
+        base_url="https://api.anthropic.com",
+        token="sk-ant-x",
+        default_args=["--model", "opus"],
+    )
+    data = profile_to_dict(profile)
+    assert data["default_args"] == ["--model", "opus"]

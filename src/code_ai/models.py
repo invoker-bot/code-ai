@@ -1,15 +1,20 @@
 from dataclasses import dataclass, asdict, field
-from typing import Optional
+from typing import List, Optional, Union
 
 VALID_TYPES = ("claude", "gemini", "codex")
+
+# default_args is stored in either form the user wrote it: a YAML list, or a
+# single command-line string parsed at use-site via shlex.split.
+DefaultArgs = Optional[Union[List[str], str]]
 
 
 @dataclass
 class BaseProfile:
     """Common fields for all profiles"""
     name: str
-    type: str                    # "claude" | "gemini" | "codex"
-    proxy: Optional[str] = None  # e.g., "http://127.0.0.1:7890"
+    type: str                            # "claude" | "gemini" | "codex"
+    proxy: Optional[str] = None          # e.g., "http://127.0.0.1:7890"
+    default_args: DefaultArgs = None     # appended after CLI extra_args at launch
 
 
 @dataclass
@@ -32,13 +37,15 @@ def profile_from_dict(data: dict) -> BaseProfile:
     ptype = data.get("type", "")
     mode = data.get("mode", "api")  # Default to api for backward compatibility
     proxy = data.get("proxy")
+    default_args = data.get("default_args")
 
     if (ptype == "claude" or ptype == "codex") and mode == "login":
         return LoginProfile(
             name=name,
             type=ptype,
             credentials_path=data.get("credentials_path", ""),
-            proxy=proxy
+            proxy=proxy,
+            default_args=default_args,
         )
     else:
         # API mode (default for all types)
@@ -48,7 +55,8 @@ def profile_from_dict(data: dict) -> BaseProfile:
             base_url=data.get("base_url", ""),
             token=data.get("token"),
             api_key=data.get("api_key"),
-            proxy=proxy
+            proxy=proxy,
+            default_args=default_args,
         )
 
 

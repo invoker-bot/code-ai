@@ -7,6 +7,7 @@ Switch AI coding tool profiles and launch the correct CLI.
 - Manage multiple AI coding tool profiles for Claude, Codex, and Gemini
 - Switch between API-mode and login-mode profiles
 - Launch the matching CLI through one command entrypoint
+- Per-profile default launch arguments (e.g., always pass `--model ...`)
 - Upgrade supported AI CLIs through npm
 
 ## Install
@@ -41,7 +42,49 @@ Launch a profile:
 code-ai run fox-gemini
 code-ai run 4399
 code-ai run fox-claude -p "hi"
+code-ai run --no-default-args fox-claude --model sonnet  # bypass profile defaults
 ```
+
+### Default launch arguments
+
+A profile may define `default_args` to be appended to every `code-ai run`
+invocation for that profile. Useful for "this profile always uses model X" or
+for forcing flags like `--dangerously-skip-permissions` on a sandboxed profile.
+
+`default_args` accepts either a YAML list (recommended) or a single string
+(parsed with POSIX shell rules):
+
+```yaml
+profiles:
+  fox-claude:
+    name: fox-claude
+    type: claude
+    mode: login
+    credentials_path: ~/.claude-profiles/fox
+    default_args:
+      - --model
+      - claude-opus-4-5
+      - --dangerously-skip-permissions
+
+  4399:
+    name: 4399
+    type: claude
+    mode: api
+    base_url: https://...
+    token: sk-...
+    default_args: "--model claude-opus-4-5"
+```
+
+Merge order: command-line arguments come first, `default_args` is appended
+last. Most CLIs treat the last occurrence of a flag as authoritative, so
+`default_args` effectively pins the configured value (e.g., the profile's
+`--model claude-opus-4-5` overrides any `--model` the user passes on the
+command line). Pass `--no-default-args` between `run` and the profile name
+to skip `default_args` for a single invocation.
+
+The interactive `code-ai add` flow asks for `default_args` at the end (leave
+blank to skip). The value is stored verbatim as a string; switch to list
+form by editing `~/.code-ai/config.yaml` directly.
 
 Remove a profile:
 

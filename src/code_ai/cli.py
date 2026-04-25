@@ -138,6 +138,11 @@ def upgrade_command():
 )
 def run_command(
     ctx: typer.Context,
+    no_default_args: bool = typer.Option(
+        False,
+        "--no-default-args",
+        help="Skip the profile's default_args for this run only",
+    ),
     profile: str = typer.Argument(..., help="Profile name to launch"),
 ):
     """Launch a profile with optional arguments
@@ -146,6 +151,7 @@ def run_command(
       code-ai run fox-claude
       code-ai run fox-claude -p "hello"
       code-ai run 4399 --help
+      code-ai run --no-default-args fox-claude --model sonnet
     """
     config = load_config()
     profiles = config.get("profiles", {})
@@ -153,7 +159,7 @@ def run_command(
         typer.echo(f"Unknown profile: '{profile}'", err=True)
         typer.echo("Run 'code-ai list' to see available profiles.")
         raise typer.Exit(1)
-    launch(profiles[profile], ctx.args)
+    launch(profiles[profile], ctx.args, use_default_args=not no_default_args)
 
 
 def version_callback(value: bool):

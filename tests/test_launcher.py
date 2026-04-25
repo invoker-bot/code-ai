@@ -2,7 +2,11 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 from src.code_ai.models import ApiProfile, LoginProfile
-from src.code_ai.launcher import prepare_environment
+from src.code_ai.launcher import (
+    prepare_environment,
+    resolve_default_args,
+    merge_launch_args,
+)
 
 
 def test_prepare_env_api_mode():
@@ -132,3 +136,76 @@ def test_prepare_env_codex_login_mode():
     # Should have CODEX_HOME with expanded path
     expected_path = os.path.expanduser("~/.codex-profiles/account-a")
     assert env["CODEX_HOME"] == expected_path
+
+
+# ---------------------------------------------------------------------------
+# default_args handling
+# ---------------------------------------------------------------------------
+
+def test_resolve_default_args_none():
+    assert resolve_default_args(None) == []
+
+
+def test_resolve_default_args_empty():
+    assert resolve_default_args("") == []
+    assert resolve_default_args([]) == []
+
+
+def test_resolve_default_args_list_passthrough():
+    assert resolve_default_args(["--model", "opus"]) == ["--model", "opus"]
+
+
+def test_resolve_default_args_string_split():
+    assert resolve_default_args("--model claude-opus-4-5 -p hi") == [
+        "--model", "claude-opus-4-5", "-p", "hi"
+    ]
+
+
+def test_resolve_default_args_string_with_quotes():
+    # POSIX shlex preserves quoted whitespace as a single token
+    assert resolve_default_args('--prompt "hello world"') == [
+        "--prompt", "hello world"
+    ]
+
+
+def test_resolve_default_args_invalid_type_raises():
+    with pytest.raises(TypeError):
+        resolve_default_args(42)
+
+
+def test_merge_launch_args_no_defaults():
+    """No profile defaults → returns extra_args unchanged."""
+    assert merge_launch_args(["--resume"], None) == ["--resume"]
+
+
+def test_merge_launch_args_only_defaults():
+    """No CLI extras, only profile defaults."""
+    assert merge_launch_args([], ["--model", "opus"]) == ["--model", "opus"]
+
+
+def test_merge_launch_args_order_b_extras_before_defaults():
+    """Q3 design = B: command-line first, defaults appended (defaults win)."""
+    result = merge_launch_args(
+        ["--model", "sonnet"],
+        ["--model", "opus", "--dangerously-skip-permissions"],
+    )
+    assert result == [
+        "--model", "sonnet",
+        "--model", "opus", "--dangerously-skip-permissions",
+    ]
+
+
+def test_merge_launch_args_string_form_defaults():
+    """default_args as string is shlex-split before merging."""
+    result = merge_launch_args(["-p", "hi"], "--model opus")
+    assert result == ["-p", "hi", "--model", "opus"]
+
+
+def test_merge_launch_args_use_default_false_skips():
+    """--no-default-args escape hatch: defaults dropped entirely."""
+    result = merge_launch_args(
+        ["--model", "sonnet"],
+        ["--model", "opus"],
+        use_default_args=False,
+    )
+    assert result == ["--model", "sonnet"]

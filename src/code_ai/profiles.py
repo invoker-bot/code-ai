@@ -95,6 +95,14 @@ def add_profile(config):
     if proxy:
         profile_data["proxy"] = proxy
 
+    # Optional default launch args for all types. Stored as a single string;
+    # launcher will shlex.split it at run time.
+    default_args = input(
+        "Default args (optional, e.g., --model claude-opus-4-5): "
+    ).strip()
+    if default_args:
+        profile_data["default_args"] = default_args
+
     config.setdefault("profiles", {})[name] = profile_data
     return config
 
@@ -138,6 +146,10 @@ def show_profile(config, name):
     # Display proxy if set
     if profile.proxy:
         print(f"Proxy: {profile.proxy}")
+
+    # Display default_args if set (preserve original list/string form)
+    if profile.default_args:
+        print(f"Default args: {profile.default_args}")
 
 
 def remove_profile(config, name):

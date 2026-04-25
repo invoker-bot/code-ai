@@ -1,7 +1,10 @@
 import os
+import shlex
 import sys
 import shutil
 import subprocess
+from typing import List
+
 from .models import profile_from_dict, ApiProfile, LoginProfile
 
 ENV_MAP = {
@@ -93,7 +96,55 @@ def prepare_environment(profile):
     return env
 
 
-def launch(profile_dict, extra_args):
+def resolve_default_args(value) -> List[str]:
+    """Normalize a profile's `default_args` field into List[str].
+
+    Accepts:
+      - None / "" / []  -> []
+      - List[str]       -> returned as-is
+      - str             -> shlex.split(value, posix=True)
+
+    Raises TypeError on unsupported shapes so config bugs surface loudly.
+    """
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(x) for x in value]
+    if isinstance(value, str):
+        return shlex.split(value, posix=True)
+    raise TypeError(
+        f"default_args must be a list or string, got {type(value).__name__}"
+    )
+
+
+def merge_launch_args(
+    extra_args: List[str],
+    default_args,
+    use_default_args: bool = True,
+) -> List[str]:
+    """Combine command-line extra_args with the profile's default_args.
+
+    Design decision (Q3 = B): command-line args come first, profile defaults
+    are appended last so they always win for "last-occurrence-wins" flags
+    like `--model`. When use_default_args is False, defaults are skipped
+    entirely (escape hatch via `--no-default-args`).
+
+    Args:
+        extra_args:        Args passed on the command line (already a list).
+        default_args:      Raw value from profile (None | list | str).
+        use_default_args:  When False, ignore default_args completely.
+
+    Returns:
+        Final argv list to pass to the underlying CLI.
+
+    Helpful: call resolve_default_args() to normalize default_args first.
+    """
+    if not use_default_args:
+        return list(extra_args)
+    return list(extra_args) + resolve_default_args(default_args)
+
+
+def launch(profile_dict, extra_args, use_default_args=True):
     # Convert dict to dataclass
     profile = profile_from_dict(profile_dict)
     ptype = profile.type
@@ -118,7 +169,8 @@ def launch(profile_dict, extra_args):
     # Prepare environment
     env = prepare_environment(profile)
 
-    full_cmd = [cmd_path] + extra_args
+    final_args = merge_launch_args(extra_args, profile.default_args, use_default_args)
+    full_cmd = [cmd_path] + final_args
 
     if sys.platform == "win32":
         # On Windows, use subprocess with full environment
@@ -130,4 +182,4 @@ def launch(profile_dict, extra_args):
     else:
         # On Unix, update os.environ and use execvp
         os.environ.update(env)
-        os.execvp(cmd, [cmd] + extra_args)
+        os.execvp(cmd, [cmd] + final_args)
