@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "ai-code-switcher"
 version = "0.1.11"
 description = "Switch AI coding tool profiles and launch the correct CLI"
-license = "MIT"
-requires-python = ">=3.8"
+license = {text = "MIT"}
+requires-python = ">=3.9"
 dependencies = [
     "pyyaml>=5.0",
     "typer>=0.9.0",
