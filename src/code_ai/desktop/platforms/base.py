@@ -94,7 +94,7 @@ def stop_processes_under(roots: List[str], timeout: float = 3.0) -> int:
 @runtime_checkable
 class PlatformBackend(Protocol):
     """Cross-OS contract. One implementation per supported platform."""
-    def detect(self, app, override_path):  # -> AppStatus
+    def detect(self, app, override_path) -> "AppStatus":
         ...
 
     def launch(self, status: AppStatus, env: dict) -> None:

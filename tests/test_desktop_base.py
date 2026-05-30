@@ -69,3 +69,53 @@ def test_stop_kills_stragglers(monkeypatch):
 
     assert match.terminated is True
     assert match.killed is True
+
+
+def test_stop_continues_when_terminate_raises(monkeypatch):
+    # A proc dying mid-sweep must not abort termination of the rest.
+    class TerminateRaisingProc(FakeProc):
+        def terminate(self):
+            raise RuntimeError("already gone")
+
+    raising = TerminateRaisingProc(r"C:\Apps\Claude\app\Claude.exe")
+    normal = FakeProc(r"C:\Apps\Claude\app\helper.exe")
+    monkeypatch.setattr(base, "psutil", FakePsutil([raising, normal], dead_on_wait=True))
+
+    count = base.stop_processes_under([r"C:\Apps\Claude"])
+
+    assert normal.terminated is True   # sweep continued past the raising proc
+    assert count == 2
+
+
+def test_stop_continues_when_children_raises(monkeypatch):
+    # If enumerating a proc's children fails, the proc itself is still stopped.
+    class ChildrenRaisingProc(FakeProc):
+        def children(self, recursive=False):
+            raise RuntimeError("access denied")
+
+    match = ChildrenRaisingProc(r"C:\Apps\Claude\app\Claude.exe")
+    monkeypatch.setattr(base, "psutil", FakePsutil([match], dead_on_wait=True))
+
+    count = base.stop_processes_under([r"C:\Apps\Claude"])
+
+    assert match.terminated is True
+    assert count == 1
+
+
+def test_psutil_lazy_import_caches(monkeypatch):
+    # _psutil() must import psutil on first use and cache it in the module global.
+    import builtins
+
+    sentinel = object()
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "psutil":
+            return sentinel
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(base, "psutil", None)
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    assert base._psutil() is sentinel   # triggers the lazy import branch
+    assert base.psutil is sentinel      # and caches into the global
