@@ -55,3 +55,73 @@ def test_detect_override_direct(monkeypatch, tmp_path):
     assert st.direct is True
     assert st.launch_target == str(bundle / "Contents/MacOS/Codex")
     assert st.match_root == str(bundle)
+
+
+from src.code_ai.desktop.platforms import base as base_mod
+from src.code_ai.desktop.platforms.base import AppStatus
+
+
+def test_launch_brokered_uses_open_a(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(macos.subprocess, "Popen",
+                        lambda argv, env=None: calls.update(argv=argv, env=env))
+    be = macos.MacBackend()
+    st = AppStatus("claude", found=True, direct=False,
+                   launch_target="/Applications/Claude.app", match_root="/Applications/Claude.app")
+    be.launch(st, {"A": "1"})
+    assert calls["argv"] == ["open", "-a", "/Applications/Claude.app"]
+    assert calls["env"] == {"A": "1"}
+
+
+def test_launch_direct_runs_binary(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(macos.subprocess, "Popen",
+                        lambda argv, env=None: calls.update(argv=argv, env=env))
+    be = macos.MacBackend()
+    st = AppStatus("claude", found=True, direct=True,
+                   launch_target="/Applications/Claude.app/Contents/MacOS/Claude",
+                   match_root="/Applications/Claude.app")
+    be.launch(st, {})
+    assert calls["argv"] == ["/Applications/Claude.app/Contents/MacOS/Claude"]
+
+
+def test_is_running_and_stop_delegate_to_base(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(base_mod, "any_process_under", lambda roots: seen.setdefault("run", roots) or True)
+    monkeypatch.setattr(base_mod, "stop_processes_under", lambda roots: seen.setdefault("stop", roots))
+    be = macos.MacBackend()
+    st = AppStatus("claude", found=True, match_root="/Applications/Claude.app")
+    assert be.is_running(st) is True
+    be.stop(st)
+    assert seen["run"] == ["/Applications/Claude.app"]
+    assert seen["stop"] == ["/Applications/Claude.app"]
+
+
+def test_create_shortcut_idempotent_when_exists(monkeypatch, tmp_path):
+    home = tmp_path
+    (home / "Desktop").mkdir()
+    appdir = home / "Desktop" / "AI Launcher.app"
+    appdir.mkdir()
+    monkeypatch.setattr(macos.os.path, "expanduser",
+                        lambda p: p.replace("~", str(home)))
+
+    def boom(*a, **k):
+        raise AssertionError("should not shell out when shortcut exists")
+    monkeypatch.setattr(macos.subprocess, "run", boom)
+
+    be = macos.MacBackend()
+    assert be.create_shortcut() == str(appdir)
+
+
+def test_remove_shortcut(monkeypatch, tmp_path):
+    home = tmp_path
+    (home / "Desktop").mkdir()
+    appdir = home / "Desktop" / "AI Launcher.app"
+    appdir.mkdir()
+    monkeypatch.setattr(macos.os.path, "expanduser",
+                        lambda p: p.replace("~", str(home)))
+    be = macos.MacBackend()
+    removed = be.remove_shortcut()
+    assert str(appdir) in removed
+    assert not appdir.exists()
+    assert be.remove_shortcut() == []

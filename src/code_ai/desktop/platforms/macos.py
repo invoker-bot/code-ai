@@ -73,23 +73,51 @@ class MacBackend:
                     return True
         return False
 
-    # ---- launch / monitor (filled in Task 9) ----
+    # ---- launch / monitor ----
     def launch(self, status: AppStatus, env: dict) -> None:
-        raise NotImplementedError
+        if status.direct:
+            subprocess.Popen([status.launch_target], env=env)
+        else:
+            subprocess.Popen(["open", "-a", status.launch_target], env=env)
 
     def is_running(self, status: AppStatus) -> bool:
-        raise NotImplementedError
+        if not status.match_root:
+            return False
+        return base.any_process_under([status.match_root])
 
     def stop(self, status: AppStatus) -> None:
-        raise NotImplementedError
+        if status.match_root:
+            base.stop_processes_under([status.match_root])
 
     # ---- file dialog filter ----
     def pick_path_filter(self) -> tuple:
         return ("Application (*.app)",)
 
-    # ---- shortcut (filled in Task 9) ----
+    # ---- shortcut ----
+    def _shortcut_path(self):
+        return os.path.expanduser("~/Desktop/AI Launcher.app")
+
     def create_shortcut(self) -> str:
-        raise NotImplementedError
+        app_path = self._shortcut_path()
+        if os.path.exists(app_path):
+            return app_path
+        python = sys.executable
+        script = (f'do shell script "{python} -m code_ai.cli desktop run '
+                  f'> /dev/null 2>&1 &"')
+        subprocess.run(["osacompile", "-o", app_path, "-e", script], check=False)
+        try:
+            icon = str(importlib.resources.files("code_ai.desktop")
+                       .joinpath("ui", "icon.icns"))
+            dest = os.path.join(app_path, "Contents", "Resources", "applet.icns")
+            if os.path.exists(icon) and os.path.isdir(os.path.dirname(dest)):
+                shutil.copyfile(icon, dest)
+        except Exception:
+            pass
+        return app_path
 
     def remove_shortcut(self) -> list:
-        raise NotImplementedError
+        app_path = self._shortcut_path()
+        if os.path.exists(app_path):
+            shutil.rmtree(app_path, ignore_errors=True)
+            return [app_path]
+        return []
