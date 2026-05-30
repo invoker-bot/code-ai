@@ -35,6 +35,15 @@ def test_detect_not_found(monkeypatch):
     assert st.found is False
 
 
+def test_query_packages_passes_no_window(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(windows.subprocess, "check_output",
+                        lambda argv, **kw: captured.update(kw) or "[]")
+    be = windows.WindowsBackend()
+    assert be._query_packages() == []
+    assert captured.get("creationflags") == windows._NO_WINDOW
+
+
 class FakeWinreg:
     HKEY_CURRENT_USER = "HKCU"
 
@@ -76,24 +85,28 @@ from src.code_ai.desktop.platforms.base import AppStatus
 def test_launch_brokered_uses_explorer_appsfolder(monkeypatch):
     calls = {}
     monkeypatch.setattr(windows.subprocess, "Popen",
-                        lambda argv, env=None: calls.update(argv=argv, env=env))
+                        lambda argv, env=None, creationflags=0: calls.update(
+                            argv=argv, env=env, creationflags=creationflags))
     be = windows.WindowsBackend()
     st = AppStatus("claude", found=True, direct=False,
                    launch_target="Claude_pzs8sxrjxfjjc!Claude", match_root="C:\\x")
     be.launch(st, {"A": "1"})
     assert calls["argv"] == ["explorer.exe", "shell:AppsFolder\\Claude_pzs8sxrjxfjjc!Claude"]
     assert calls["env"] == {"A": "1"}
+    assert calls["creationflags"] == windows._NO_WINDOW
 
 
 def test_launch_direct_runs_exe(monkeypatch):
     calls = {}
     monkeypatch.setattr(windows.subprocess, "Popen",
-                        lambda argv, env=None: calls.update(argv=argv, env=env))
+                        lambda argv, env=None, creationflags=0: calls.update(
+                            argv=argv, env=env, creationflags=creationflags))
     be = windows.WindowsBackend()
     st = AppStatus("claude", found=True, direct=True,
                    launch_target=r"C:\Apps\Claude.exe", match_root=r"C:\Apps\Claude.exe")
     be.launch(st, {})
     assert calls["argv"] == [r"C:\Apps\Claude.exe"]
+    assert calls["creationflags"] == windows._NO_WINDOW
 
 
 def test_is_running_and_stop_delegate_to_base(monkeypatch):
@@ -153,7 +166,8 @@ def test_create_shortcut_quotes_paths_for_powershell(monkeypatch, tmp_path):
 
     captured = {}
     monkeypatch.setattr(windows.subprocess, "run",
-                        lambda argv, check=False: captured.update(argv=argv))
+                        lambda argv, check=False, creationflags=0: captured.update(
+                            argv=argv, creationflags=creationflags))
 
     be = windows.WindowsBackend()
     path = be.create_shortcut()
@@ -165,3 +179,4 @@ def test_create_shortcut_quotes_paths_for_powershell(monkeypatch, tmp_path):
     assert f"CreateShortcut('{expected_lnk}')" in script
     assert f'CreateShortcut("{expected_lnk}")' not in script
     assert "$s.TargetPath = '" in script
+    assert captured["creationflags"] == windows._NO_WINDOW

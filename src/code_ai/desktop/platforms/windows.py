@@ -13,6 +13,13 @@ except ImportError:  # pragma: no cover - non-Windows import path
     winreg = None
 
 
+# CREATE_NO_WINDOW suppresses the console-window flash that console child
+# processes (PowerShell, etc.) would otherwise show when the launcher runs
+# under pythonw.exe. getattr keeps this importable on non-Windows, where the
+# flag is absent (value 0 = no-op).
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
 class WindowsBackend:
     # ---- detection ----
     def detect(self, app, override_path=None) -> AppStatus:
@@ -33,7 +40,7 @@ class WindowsBackend:
         try:
             out = subprocess.check_output(
                 ["powershell", "-NoProfile", "-Command", ps],
-                text=True, stderr=subprocess.DEVNULL,
+                text=True, stderr=subprocess.DEVNULL, creationflags=_NO_WINDOW,
             )
             data = json.loads(out)
         except Exception:
@@ -60,11 +67,12 @@ class WindowsBackend:
     # ---- launch / monitor ----
     def launch(self, status: AppStatus, env: dict) -> None:
         if status.direct:
-            subprocess.Popen([status.launch_target], env=env)
+            subprocess.Popen([status.launch_target], env=env,
+                             creationflags=_NO_WINDOW)
         else:
             subprocess.Popen(
                 ["explorer.exe", f"shell:AppsFolder\\{status.launch_target}"],
-                env=env,
+                env=env, creationflags=_NO_WINDOW,
             )
 
     def is_running(self, status: AppStatus) -> bool:
@@ -138,7 +146,8 @@ class WindowsBackend:
             f"{icon_line}"
             "$s.Save()\n"
         )
-        subprocess.run(["powershell", "-NoProfile", "-Command", script], check=False)
+        subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                       check=False, creationflags=_NO_WINDOW)
 
     def remove_shortcut(self) -> list:
         removed = []
