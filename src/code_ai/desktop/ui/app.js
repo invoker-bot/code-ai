@@ -2,6 +2,15 @@ const api = () => window.pywebview.api;
 let APPS = [];
 let curApp = null;
 
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 async function init() {
   APPS = await api().list_apps();
   renderApps();
@@ -18,9 +27,9 @@ function renderApps() {
     card.className = "card";
     card.innerHTML =
       `<button class="cfg" title="专有设置">⚙</button>` +
-      `<div class="title">${a.display}</div>` +
-      `<div class="status" id="status-${a.id}"></div>` +
-      `<button class="action" id="btn-${a.id}"></button>`;
+      `<div class="title">${esc(a.display)}</div>` +
+      `<div class="status" id="status-${esc(a.id)}"></div>` +
+      `<button class="action" id="btn-${esc(a.id)}"></button>`;
     grid.appendChild(card);
     updateCard(a.id, a.found, a.running);
     document.getElementById(`btn-${a.id}`).onclick = () => onAction(a.id);
@@ -100,9 +109,9 @@ function addEnvRow(containerId, k = "", v = "") {
   const row = document.createElement("div");
   row.className = "env-row";
   row.innerHTML =
-    `<input class="k" placeholder="KEY" value="${k}">` +
+    `<input class="k" placeholder="KEY" value="${esc(k)}">` +
     `<span>=</span>` +
-    `<input class="v" placeholder="VALUE" value="${v}">` +
+    `<input class="v" placeholder="VALUE" value="${esc(v)}">` +
     `<button class="del">×</button>`;
   row.querySelector(".del").onclick = () => row.remove();
   c.appendChild(row);
