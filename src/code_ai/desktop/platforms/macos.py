@@ -1,6 +1,7 @@
 import importlib.resources
 import os
 import plistlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -97,13 +98,25 @@ class MacBackend:
     def _shortcut_path(self):
         return os.path.normpath(os.path.expanduser("~/Desktop/AI Launcher.app"))
 
+    @staticmethod
+    def _osa_quote(value):
+        """Quote a string as an AppleScript double-quoted literal.
+
+        Backslashes and double quotes are the only metacharacters inside an
+        AppleScript string literal, so escaping those two is sufficient.
+        """
+        return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
     def create_shortcut(self) -> str:
         app_path = self._shortcut_path()
         if os.path.exists(app_path):
             return app_path
-        python = sys.executable
-        script = (f'do shell script "{python} -m code_ai.cli desktop run '
-                  f'> /dev/null 2>&1 &"')
+        # shlex.quote protects the interpreter path from /bin/sh word-splitting
+        # (spaces are realistic in macOS install paths); _osa_quote then wraps the
+        # whole command as a safe AppleScript string literal.
+        inner = (f"{shlex.quote(sys.executable)} -m code_ai.cli desktop run "
+                 f"> /dev/null 2>&1 &")
+        script = "do shell script " + self._osa_quote(inner)
         subprocess.run(["osacompile", "-o", app_path, "-e", script], check=False)
         try:
             icon = str(importlib.resources.files("code_ai.desktop")

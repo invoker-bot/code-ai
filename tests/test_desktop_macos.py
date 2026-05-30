@@ -125,3 +125,25 @@ def test_remove_shortcut(monkeypatch, tmp_path):
     assert str(appdir) in removed
     assert not appdir.exists()
     assert be.remove_shortcut() == []
+
+
+def test_create_shortcut_quotes_python_path_for_shell(monkeypatch, tmp_path):
+    # A sys.executable path with a space must be shell-quoted so the macOS
+    # `do shell script` /bin/sh layer doesn't word-split it.
+    home = tmp_path
+    (home / "Desktop").mkdir()
+    monkeypatch.setattr(macos.os.path, "expanduser",
+                        lambda p: p.replace("~", str(home)))
+    monkeypatch.setattr(macos.sys, "executable", "/Users/My Name/venv/bin/python3")
+
+    captured = {}
+    monkeypatch.setattr(macos.subprocess, "run",
+                        lambda argv, check=False: captured.update(argv=argv))
+
+    be = macos.MacBackend()
+    be.create_shortcut()
+
+    # osacompile argv is ["osacompile", "-o", app_path, "-e", script]
+    script = captured["argv"][-1]
+    assert "'/Users/My Name/venv/bin/python3'" in script   # POSIX single-quoted
+    assert script.startswith("do shell script ")
