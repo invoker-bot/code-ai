@@ -162,6 +162,93 @@ def run_command(
     launch(profiles[profile], ctx.args, use_default_args=not no_default_args)
 
 
+desktop_app = typer.Typer(
+    help="AI desktop launcher: install / run / uninstall",
+    add_completion=False,
+)
+app.add_typer(desktop_app, name="desktop")
+
+_DESKTOP_UNSUPPORTED = "code-ai desktop is supported on Windows and macOS only."
+
+
+@desktop_app.command("install")
+def desktop_install():
+    """Create the double-click desktop shortcut (idempotent)."""
+    from .desktop.platforms import get_backend
+
+    backend = get_backend()
+    if backend is None:
+        typer.echo(_DESKTOP_UNSUPPORTED)
+        raise typer.Exit(1)
+    path = backend.create_shortcut()
+    if path:
+        typer.echo(f"Shortcut ready: {path}")
+        typer.echo("Open the launcher anytime with: code-ai desktop run")
+    else:
+        typer.echo("Could not create the shortcut.")
+        raise typer.Exit(1)
+
+
+@desktop_app.command("run")
+def desktop_run():
+    """Open the AI launcher GUI window."""
+    from .desktop.platforms import get_backend
+
+    backend = get_backend()
+    if backend is None:
+        typer.echo(_DESKTOP_UNSUPPORTED)
+        raise typer.Exit(1)
+    try:
+        import webview  # noqa: F401
+        import psutil  # noqa: F401
+    except ImportError:
+        typer.echo("The desktop launcher needs extra dependencies.")
+        typer.echo("Install them with: pip install ai-code-switcher[desktop]")
+        raise typer.Exit(1)
+    from .desktop.app import run_gui
+
+    run_gui()
+
+
+@desktop_app.command("uninstall")
+def desktop_uninstall(
+    purge: bool = typer.Option(
+        False, "--purge", help="Also delete ~/.code-ai/desktop.yaml without asking"
+    ),
+    keep_config: bool = typer.Option(
+        False, "--keep-config", help="Keep ~/.code-ai/desktop.yaml without asking"
+    ),
+):
+    """Remove the shortcut, then optionally delete launcher settings."""
+    from .desktop.platforms import get_backend
+    from .desktop import config as desktop_config
+
+    backend = get_backend()
+    if backend is None:
+        typer.echo(_DESKTOP_UNSUPPORTED)
+        raise typer.Exit(1)
+
+    removed = backend.remove_shortcut()
+    if removed:
+        for path in removed:
+            typer.echo(f"Removed: {path}")
+    else:
+        typer.echo("No shortcut found — nothing to remove.")
+
+    config_path = desktop_config.DESKTOP_CONFIG_FILE
+    if not config_path.exists() or keep_config:
+        return
+
+    delete = purge
+    if not purge:
+        delete = typer.confirm(
+            f"Also delete launcher settings ({config_path})?", default=False
+        )
+    if delete:
+        config_path.unlink()
+        typer.echo("Deleted launcher settings.")
+
+
 def version_callback(value: bool):
     if value:
         typer.echo(f"code-ai {__version__}")
