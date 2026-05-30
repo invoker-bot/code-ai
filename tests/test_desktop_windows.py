@@ -138,3 +138,30 @@ def test_remove_shortcut_reports_paths(monkeypatch, tmp_path):
     assert not lnk.exists()
     # second call: nothing to remove
     assert be.remove_shortcut() == []
+
+
+def test_create_shortcut_quotes_paths_for_powershell(monkeypatch, tmp_path):
+    # Fresh (non-existent) shortcut path with a PowerShell-hostile '$' in it:
+    # the generated script must single-quote it, not double-quote it.
+    home = tmp_path / "dev$x"
+    home.mkdir()
+    monkeypatch.setattr(windows.os.path, "expanduser",
+                        lambda p: str(home) if p == "~" else p)
+    monkeypatch.delenv("APPDATA", raising=False)
+    # No icon on disk -> IconLocation line omitted.
+    monkeypatch.setattr(windows.WindowsBackend, "_icon_path", lambda self: r"C:\nope\icon.ico")
+
+    captured = {}
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda argv, check=False: captured.update(argv=argv))
+
+    be = windows.WindowsBackend()
+    path = be.create_shortcut()
+
+    expected_lnk = str(home / "Desktop" / "AI Launcher.lnk")
+    assert path == expected_lnk
+    script = captured["argv"][-1]
+    # The hostile path is single-quoted (literal), never double-quoted.
+    assert f"CreateShortcut('{expected_lnk}')" in script
+    assert f'CreateShortcut("{expected_lnk}")' not in script
+    assert "$s.TargetPath = '" in script

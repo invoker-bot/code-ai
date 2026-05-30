@@ -116,13 +116,25 @@ class WindowsBackend:
             created.append(path)
         return created[0] if created else ""
 
+    @staticmethod
+    def _ps_quote(value):
+        """Quote a string as a PowerShell single-quoted literal.
+
+        Single quotes prevent $-expansion and backtick escapes; embedded
+        single quotes are doubled per PowerShell literal-string rules.
+        """
+        return "'" + str(value).replace("'", "''") + "'"
+
     def _write_lnk(self, path, target, args, icon):
-        icon_line = f'$s.IconLocation = "{icon}"\n' if os.path.exists(icon) else ""
+        icon_line = (
+            f"$s.IconLocation = {self._ps_quote(icon)}\n"
+            if os.path.exists(icon) else ""
+        )
         script = (
             "$ws = New-Object -ComObject WScript.Shell\n"
-            f'$s = $ws.CreateShortcut("{path}")\n'
-            f'$s.TargetPath = "{target}"\n'
-            f'$s.Arguments = "{args}"\n'
+            f"$s = $ws.CreateShortcut({self._ps_quote(path)})\n"
+            f"$s.TargetPath = {self._ps_quote(target)}\n"
+            f"$s.Arguments = {self._ps_quote(args)}\n"
             f"{icon_line}"
             "$s.Save()\n"
         )
