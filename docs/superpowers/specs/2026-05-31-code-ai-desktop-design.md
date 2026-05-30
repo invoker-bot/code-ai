@@ -10,7 +10,7 @@
 
 `code-ai desktop` is a new **command group**:
 
-- `code-ai desktop install` — create the double-click desktop shortcut (idempotent).
+- `code-ai desktop install` — create or recreate the double-click desktop shortcut.
 - `code-ai desktop run` — open the GUI window (pywebview). This is what the shortcut launches.
 - `code-ai desktop uninstall` — remove the shortcut (and optionally the config).
 
@@ -262,7 +262,7 @@ Web assets are plain HTML/CSS/JS shipped as package data and loaded via `importl
 `desktop` is a Typer sub-app added to `cli.py` via `app.add_typer(desktop_app, name="desktop")`, with three commands. Only `run` needs the `[desktop]` extra, so `install` / `uninstall` work even when pywebview/psutil are not installed. On unsupported platforms every subcommand prints the "Windows and macOS only" message and exits early.
 
 ### `code-ai desktop install`
-Creates the double-click launcher **idempotently** (if present, leaves it and reports the path). The shortcut targets `code-ai desktop run`.
+Creates the double-click launcher, first removing any existing launcher shortcut so the target/icon are refreshed. The shortcut targets `code-ai desktop run`.
 - **Windows:** `Desktop\AI Launcher.lnk` (+ Start-Menu copy) via `WScript.Shell` (COM, no new dependency). Target `pythonw.exe -m code_ai.cli desktop run`, icon `ui/icon.ico` → opens with **no console window**.
 - **macOS:** `~/Desktop/AI Launcher.app` built via `osacompile` (preinstalled) wrapping `do shell script "<python> -m code_ai.cli desktop run &> /dev/null &"`, with `ui/icon.icns` dropped into the bundle's `Resources`. Double-clicks like a native app, **no Terminal window**.
 
@@ -298,7 +298,7 @@ The `desktop` command imports `pywebview` / `psutil` **lazily**; if missing it p
 Follows the existing `from src.code_ai...` import style and `unittest.mock` patterns. Focus on the platform-agnostic logic and on each backend's pure-logic parts (string/path/parse), mocking the OS calls. Backend selection lets tests target either backend regardless of host OS.
 
 - **Backend selection** — `get_backend()` returns Windows backend for `win32`, macOS for `darwin`, `None` (→ friendly exit) otherwise.
-- **Command group** — `install` is idempotent (second call is a no-op that reports the existing path); `uninstall` with `--purge` deletes `desktop.yaml`, with `--keep-config` preserves it; `uninstall` on a missing shortcut reports "nothing to remove" without error. (Shortcut creation/removal itself is backend-mocked; the command wiring and the config-prompt branch are what's asserted.)
+- **Command group** — `install` removes any existing shortcut and then creates a fresh one; `uninstall` with `--purge` deletes `desktop.yaml`, with `--keep-config` preserves it; `uninstall` on a missing shortcut reports "nothing to remove" without error. (Shortcut creation/removal itself is backend-mocked; the command wiring and the config-prompt branch are what's asserted.)
 - **`apps.py` / detection (Windows)** — family-signature regex matches versioned folder names; configured custom path wins; not-found state.
 - **detection (macOS)** — bundle resolution by id with fallback to `/Applications` and `~/Applications`; custom `.app` path wins. (`mdfind` / filesystem mocked.)
 - **process logic** — `is_running` / `stop` driven by a **fake psutil** (monkeypatched `process_iter` / fake procs): assert path-matching (under WindowsApps folder vs under `.app` bundle) and the terminate→wait→kill escalation. No real processes spawned.

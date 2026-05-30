@@ -148,7 +148,7 @@ between **启动** (launch) and **中止** (stop), with a live running indicator
 
 ```bash
 pip install ai-code-switcher[desktop]   # one-time: install the GUI deps
-code-ai desktop install                 # create the double-click shortcut
+code-ai desktop install                 # create or recreate the shortcut
 code-ai desktop run                     # open the launcher window
 code-ai desktop uninstall               # remove the shortcut (asks about settings)
 ```

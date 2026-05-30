@@ -147,3 +147,26 @@ def test_create_shortcut_quotes_python_path_for_shell(monkeypatch, tmp_path):
     script = captured["argv"][-1]
     assert "'/Users/My Name/venv/bin/python3'" in script   # POSIX single-quoted
     assert script.startswith("do shell script ")
+
+
+def test_create_shortcut_copies_packaged_icon(monkeypatch, tmp_path):
+    home = tmp_path
+    (home / "Desktop").mkdir()
+    monkeypatch.setattr(macos.os.path, "expanduser",
+                        lambda p: p.replace("~", str(home)))
+
+    def fake_run(argv, check=False):
+        app_path = argv[argv.index("-o") + 1]
+        (tmp_path / "Desktop" / "AI Launcher.app" /
+         "Contents" / "Resources").mkdir(parents=True)
+        assert app_path == str(tmp_path / "Desktop" / "AI Launcher.app")
+
+    monkeypatch.setattr(macos.subprocess, "run", fake_run)
+
+    be = macos.MacBackend()
+    app_path = be.create_shortcut()
+
+    applet_icon = tmp_path / "Desktop" / "AI Launcher.app" / "Contents" / "Resources" / "applet.icns"
+    source_icon = macos.importlib.resources.files("code_ai.desktop").joinpath("ui", "icon.icns")
+    assert app_path == str(tmp_path / "Desktop" / "AI Launcher.app")
+    assert applet_icon.read_bytes() == source_icon.read_bytes()

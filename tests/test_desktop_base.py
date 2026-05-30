@@ -102,6 +102,23 @@ def test_stop_continues_when_children_raises(monkeypatch):
     assert count == 1
 
 
+def test_stop_kills_targets_when_wait_procs_raises(monkeypatch):
+    # A service-managed process can refuse wait access after terminate() was
+    # attempted. That must not surface as a failed stop action.
+    class WaitRaisingPsutil(FakePsutil):
+        def wait_procs(self, procs, timeout=None):
+            raise RuntimeError("access denied")
+
+    match = FakeProc(r"C:\Apps\Claude\app\resources\cowork-svc.exe")
+    monkeypatch.setattr(base, "psutil", WaitRaisingPsutil([match]))
+
+    count = base.stop_processes_under([r"C:\Apps\Claude"])
+
+    assert match.terminated is True
+    assert match.killed is True
+    assert count == 1
+
+
 def test_psutil_lazy_import_caches(monkeypatch):
     # _psutil() must import psutil on first use and cache it in the module global.
     import builtins

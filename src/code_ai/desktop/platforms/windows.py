@@ -20,6 +20,12 @@ except ImportError:  # pragma: no cover - non-Windows import path
 # flag is absent (value 0 = no-op).
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
+_IGNORED_PROCESS_NAMES = {
+    # Claude keeps this service alive under the package install directory even
+    # when the desktop window is closed. It is not a GUI-app running signal.
+    "claude": ("cowork-svc.exe",),
+}
+
 
 class WindowsBackend:
     # ---- detection ----
@@ -141,11 +147,17 @@ class WindowsBackend:
     def is_running(self, status: AppStatus) -> bool:
         if not status.match_root:
             return False
-        return bool(base.any_process_under([status.match_root]))
+        return bool(base.any_process_under(
+            [status.match_root],
+            ignored_names=_IGNORED_PROCESS_NAMES.get(status.app_id),
+        ))
 
     def stop(self, status: AppStatus) -> None:
         if status.match_root:
-            base.stop_processes_under([status.match_root])
+            base.stop_processes_under(
+                [status.match_root],
+                ignored_names=_IGNORED_PROCESS_NAMES.get(status.app_id),
+            )
 
     # ---- file dialog filter ----
     def pick_path_filter(self) -> tuple:

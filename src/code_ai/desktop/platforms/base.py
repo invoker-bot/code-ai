@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import List, Protocol, runtime_checkable
+from typing import Iterable, List, Protocol, runtime_checkable
 
 # Lazy, cached psutil handle. NEVER import psutil at module top — that would
 # force the [desktop] extra on every code path (install/uninstall, tests).
@@ -40,32 +40,50 @@ def _matches(exe: str, root: str) -> bool:
     return e == r or e.startswith(r + os.sep)
 
 
-def any_process_under(roots: List[str]) -> bool:
+def _ignored_exe_names(names: Iterable[str] = None) -> set:
+    return {os.path.normcase(n) for n in (names or []) if n}
+
+
+def _ignored_exe(exe: str, ignored_names: set) -> bool:
+    return bool(exe and os.path.normcase(os.path.basename(exe)) in ignored_names)
+
+
+def any_process_under(roots: List[str], ignored_names: Iterable[str] = None) -> bool:
     """True if any running process's exe lives under one of `roots`."""
     p = _psutil()
     real_roots = [r for r in roots if r]
+    ignored = _ignored_exe_names(ignored_names)
     if not real_roots:
         return False
     for proc in p.process_iter(["exe"]):
         exe = proc.info.get("exe") or ""
+        if _ignored_exe(exe, ignored):
+            continue
         if any(_matches(exe, r) for r in real_roots):
             return True
     return False
 
 
-def stop_processes_under(roots: List[str], timeout: float = 3.0) -> int:
+def stop_processes_under(
+    roots: List[str],
+    timeout: float = 3.0,
+    ignored_names: Iterable[str] = None,
+) -> int:
     """Terminate (then kill stragglers) every process under `roots` + children.
 
     Returns the number of processes targeted. Steam-style whole-app stop.
     """
     p = _psutil()
     real_roots = [r for r in roots if r]
+    ignored = _ignored_exe_names(ignored_names)
     if not real_roots:
         return 0
 
     victims = []
     for proc in p.process_iter(["exe"]):
         exe = proc.info.get("exe") or ""
+        if _ignored_exe(exe, ignored):
+            continue
         if any(_matches(exe, r) for r in real_roots):
             victims.append(proc)
 
@@ -82,7 +100,10 @@ def stop_processes_under(roots: List[str], timeout: float = 3.0) -> int:
         except Exception:
             pass
 
-    _gone, alive = p.wait_procs(targets, timeout=timeout)
+    try:
+        _gone, alive = p.wait_procs(targets, timeout=timeout)
+    except Exception:
+        alive = targets
     for proc in alive:
         try:
             proc.kill()

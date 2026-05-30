@@ -173,13 +173,17 @@ _DESKTOP_UNSUPPORTED = "code-ai desktop is supported on Windows and macOS only."
 
 @desktop_app.command("install")
 def desktop_install():
-    """Create the double-click desktop shortcut (idempotent)."""
+    """Create or recreate the double-click desktop shortcut."""
     from .desktop.platforms import get_backend
 
     backend = get_backend()
     if backend is None:
         typer.echo(_DESKTOP_UNSUPPORTED)
         raise typer.Exit(1)
+
+    for removed_path in backend.remove_shortcut():
+        typer.echo(f"Removed existing shortcut: {removed_path}")
+
     path = backend.create_shortcut()
     if path:
         typer.echo(f"Shortcut ready: {path}")

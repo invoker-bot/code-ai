@@ -82,6 +82,19 @@ from src.code_ai.desktop.platforms import base as base_mod
 from src.code_ai.desktop.platforms.base import AppStatus
 
 
+class FakeProc:
+    def __init__(self, exe):
+        self.info = {"exe": exe}
+
+
+class FakePsutil:
+    def __init__(self, procs):
+        self._procs = procs
+
+    def process_iter(self, attrs=None):
+        return list(self._procs)
+
+
 def test_launch_brokered_falls_back_to_explorer_when_root_missing(monkeypatch):
     # match_root is not a real directory, so _resolve_exe returns None and
     # launch falls back to the OS broker (explorer shell:AppsFolder). This is
@@ -116,14 +129,32 @@ def test_launch_direct_runs_exe(monkeypatch):
 
 def test_is_running_and_stop_delegate_to_base(monkeypatch):
     seen = {}
-    monkeypatch.setattr(base_mod, "any_process_under", lambda roots: seen.setdefault("run", roots) or True)
-    monkeypatch.setattr(base_mod, "stop_processes_under", lambda roots: seen.setdefault("stop", roots))
+    monkeypatch.setattr(
+        base_mod, "any_process_under",
+        lambda roots, ignored_names=None: seen.setdefault("run", (roots, ignored_names)) or True,
+    )
+    monkeypatch.setattr(
+        base_mod, "stop_processes_under",
+        lambda roots, ignored_names=None: seen.setdefault("stop", (roots, ignored_names)),
+    )
     be = windows.WindowsBackend()
     st = AppStatus("claude", found=True, match_root=r"C:\Apps\Claude")
     assert be.is_running(st) is True
     be.stop(st)
-    assert seen["run"] == [r"C:\Apps\Claude"]
-    assert seen["stop"] == [r"C:\Apps\Claude"]
+    assert seen["run"] == ([r"C:\Apps\Claude"], ("cowork-svc.exe",))
+    assert seen["stop"] == ([r"C:\Apps\Claude"], ("cowork-svc.exe",))
+
+
+def test_is_running_ignores_claude_background_service(monkeypatch):
+    root = r"C:\Program Files\WindowsApps\Claude_1.0_x64__pzs8sxrjxfjjc"
+    proc = FakeProc(root + r"\app\resources\cowork-svc.exe")
+    monkeypatch.setattr(base_mod, "psutil", FakePsutil([proc]))
+
+    be = windows.WindowsBackend()
+    st = AppStatus("claude", found=True, direct=False,
+                   launch_target="Claude_pzs8sxrjxfjjc!Claude", match_root=root)
+
+    assert be.is_running(st) is False
 
 
 def test_create_shortcut_idempotent_when_exists(monkeypatch, tmp_path):

@@ -21,13 +21,16 @@ def temp_desktop_config():
 
 
 class FakeBackend:
-    def __init__(self):
-        self.removed = ["/path/AI Launcher.lnk"]
+    def __init__(self, removed=None):
+        self.removed = [] if removed is None else removed
+        self.calls = []
 
     def create_shortcut(self):
+        self.calls.append("create")
         return "/path/AI Launcher.lnk"
 
     def remove_shortcut(self):
+        self.calls.append("remove")
         return self.removed
 
 
@@ -36,6 +39,18 @@ def test_install_creates_shortcut(monkeypatch):
     result = runner.invoke(app, ["desktop", "install"])
     assert result.exit_code == 0
     assert "AI Launcher.lnk" in result.output
+
+
+def test_install_recreates_existing_shortcut(monkeypatch):
+    backend = FakeBackend(removed=["/path/AI Launcher.lnk"])
+    monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: backend)
+
+    result = runner.invoke(app, ["desktop", "install"])
+
+    assert result.exit_code == 0
+    assert backend.calls == ["remove", "create"]
+    assert "Removed existing shortcut" in result.output
+    assert "Shortcut ready" in result.output
 
 
 def test_install_unsupported_platform(monkeypatch):
@@ -48,7 +63,10 @@ def test_install_unsupported_platform(monkeypatch):
 def test_uninstall_removes_shortcut_and_keeps_config(monkeypatch):
     with temp_desktop_config() as f:
         f.write_text("check_system_proxy: true\n")
-        monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: FakeBackend())
+        monkeypatch.setattr(
+            "src.code_ai.desktop.platforms.get_backend",
+            lambda: FakeBackend(removed=["/path/AI Launcher.lnk"]),
+        )
         monkeypatch.setattr("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f)
         result = runner.invoke(app, ["desktop", "uninstall", "--keep-config"])
         assert result.exit_code == 0
@@ -59,7 +77,10 @@ def test_uninstall_removes_shortcut_and_keeps_config(monkeypatch):
 def test_uninstall_purge_deletes_config(monkeypatch):
     with temp_desktop_config() as f:
         f.write_text("check_system_proxy: true\n")
-        monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: FakeBackend())
+        monkeypatch.setattr(
+            "src.code_ai.desktop.platforms.get_backend",
+            lambda: FakeBackend(removed=["/path/AI Launcher.lnk"]),
+        )
         monkeypatch.setattr("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f)
         result = runner.invoke(app, ["desktop", "uninstall", "--purge"])
         assert result.exit_code == 0

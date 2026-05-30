@@ -1,5 +1,6 @@
 import json
 import pathlib
+import sys
 import threading
 import time
 
@@ -10,6 +11,10 @@ from .platforms import get_backend
 POLL_SECONDS = 1.5
 
 
+def _ui_asset_path(name: str) -> pathlib.Path:
+    return pathlib.Path(__file__).resolve().parent / "ui" / name
+
+
 def _ui_url() -> str:
     # Resolve the UI relative to this module's own file so it works whether the
     # package is installed as a wheel, run from source, or used in a worktree
@@ -17,8 +22,27 @@ def _ui_url() -> str:
     # copy that lacks the desktop subpackage — the source-vs-installed gotcha).
     # Return a file:// URI so pywebview renders the page and resolves the relative
     # style.css / app.js links across platforms.
-    index = pathlib.Path(__file__).resolve().parent / "ui" / "index.html"
+    index = _ui_asset_path("index.html")
     return index.as_uri()
+
+
+def _window_icon_path() -> str:
+    return str(_ui_asset_path("icon.png"))
+
+
+def _apply_windows_titlebar_icon(window) -> None:
+    if sys.platform != "win32":
+        return
+    icon = _ui_asset_path("icon.ico")
+    native = getattr(window, "native", None)
+    if not native or not icon.is_file():
+        return
+    try:
+        from System.Drawing import Icon
+
+        native.Icon = Icon(str(icon))
+    except Exception:
+        pass
 
 
 def run_gui():
@@ -34,17 +58,17 @@ def run_gui():
     window = webview.create_window(
         "AI Launcher", url=_ui_url(), js_api=bridge, width=760, height=560,
     )
-    bridge.window = window
-    bridge.open_dialog = webview.OPEN_DIALOG
+    bridge._attach_window(window, webview.OPEN_DIALOG)
+    window.events.shown += _apply_windows_titlebar_icon
 
     def poll():
         while True:
             time.sleep(POLL_SECONDS)
             try:
-                payload = json.dumps(bridge.statuses())
+                payload = json.dumps(bridge._statuses())
                 window.evaluate_js(f"window.updateStatus({payload})")
             except Exception:
                 break
 
     threading.Thread(target=poll, daemon=True).start()
-    webview.start()
+    webview.start(icon=_window_icon_path())
