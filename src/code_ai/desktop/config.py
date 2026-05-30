@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -18,9 +19,14 @@ def load_desktop_config() -> dict:
                              for k, v in DEFAULTS.items()})
     with open(DESKTOP_CONFIG_FILE, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
+    # Coerce, don't just default: a hand-written `apps:` / `env_vars:` with no
+    # value parses to None, and setdefault is a no-op when the key already
+    # exists. Normalizing here keeps the write path (_app_block) from crashing.
+    if not isinstance(data.get("env_vars"), dict):
+        data["env_vars"] = {}
+    if not isinstance(data.get("apps"), dict):
+        data["apps"] = {}
     data.setdefault("check_system_proxy", True)
-    data.setdefault("env_vars", {})
-    data.setdefault("apps", {})
     return data
 
 
@@ -59,7 +65,7 @@ def set_app_env(data: dict, app_id: str, env: dict) -> None:
     _app_block(data, app_id)["env_vars"] = dict(env)
 
 
-def get_app_path(data: dict, app_id: str):
+def get_app_path(data: dict, app_id: str) -> Optional[str]:
     block = (data.get("apps") or {}).get(app_id) or {}
     return block.get("path")
 

@@ -51,3 +51,27 @@ def test_getters_default_for_unknown_app():
             data = cfg.load_desktop_config()
             assert cfg.get_app_env(data, "ghost") == {}
             assert cfg.get_app_path(data, "ghost") is None
+
+
+def test_load_coerces_null_valued_keys():
+    with temp_desktop_config() as f:
+        with patch("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f):
+            # Hand-written YAML with bare keys -> parsed as None by PyYAML.
+            f.write_text("check_system_proxy: false\napps:\nenv_vars:\n", encoding="utf-8")
+            data = cfg.load_desktop_config()
+            assert data["apps"] == {}
+            assert data["env_vars"] == {}
+            # The write path must not crash on the coerced values.
+            cfg.set_app_env(data, "claude", {"K": "V"})
+            assert cfg.get_app_env(data, "claude") == {"K": "V"}
+
+
+def test_set_app_env_preserves_existing_app_path():
+    with temp_desktop_config() as f:
+        with patch("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f):
+            data = cfg.load_desktop_config()
+            cfg.set_app_path(data, "codex", "/Applications/Codex.app")
+            cfg.set_app_env(data, "codex", {"X": "Y"})
+            # Setting env must not wipe the previously-set path (and vice versa).
+            assert cfg.get_app_path(data, "codex") == "/Applications/Codex.app"
+            assert cfg.get_app_env(data, "codex") == {"X": "Y"}
