@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 from . import base
 from .base import AppStatus
@@ -65,15 +66,77 @@ class WindowsBackend:
             return False
 
     # ---- launch / monitor ----
+    @staticmethod
+    def _safe_parse_xml(path):
+        """Parse XML with any DTD refused (defense-in-depth).
+
+        AppxManifest.xml is an OS-trusted, signed, admin-only file that never
+        contains a DTD. A DTD is the prerequisite for XXE and entity-expansion
+        ("billion laughs") attacks, so rejecting one (raising ValueError, which
+        the caller turns into a broker fallback) defangs both classes without a
+        defusedxml dependency. ElementTree never resolves external entities, so
+        no DTD means no reachable attack surface.
+        """
+        with open(path, "rb") as fh:
+            data = fh.read()
+        if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+            raise ValueError("DTD/DOCTYPE not allowed in manifest")
+        return ET.ElementTree(ET.fromstring(data))
+
+    def _resolve_exe(self, status: AppStatus):
+        """Resolve a brokered MSIX app's real executable from its manifest.
+
+        Returns the absolute exe path, or None when it can't be resolved (no
+        install dir, unreadable manifest, missing binary) so the caller can
+        fall back to the OS broker. The Application is matched by the AUMID's
+        app id (the part after '!'); its <Application Executable="..."> value
+        is joined onto the package InstallLocation (status.match_root).
+        """
+        root = status.match_root
+        if not root or not os.path.isdir(root):
+            return None
+        manifest = os.path.join(root, "AppxManifest.xml")
+        if not os.path.isfile(manifest):
+            return None
+        want_id = (status.launch_target.split("!", 1)[1]
+                   if "!" in status.launch_target else "")
+        try:
+            tree = self._safe_parse_xml(manifest)
+        except (ET.ParseError, OSError, ValueError):
+            return None
+        # Namespace-agnostic: the manifest's default xmlns prefixes every tag.
+        apps = [e for e in tree.iter() if e.tag.rsplit("}", 1)[-1] == "Application"]
+        chosen = next((e for e in apps if e.get("Id") == want_id), None)
+        if chosen is None and apps:
+            chosen = apps[0]
+        if chosen is None:
+            return None
+        executable = chosen.get("Executable")
+        if not executable:
+            return None
+        exe = os.path.join(root, *executable.replace("\\", "/").split("/"))
+        return exe if os.path.isfile(exe) else None
+
     def launch(self, status: AppStatus, env: dict) -> None:
         if status.direct:
             subprocess.Popen([status.launch_target], env=env,
                              creationflags=_NO_WINDOW)
-        else:
-            subprocess.Popen(
-                ["explorer.exe", f"shell:AppsFolder\\{status.launch_target}"],
-                env=env, creationflags=_NO_WINDOW,
-            )
+            return
+        # Brokered MSIX: launch the real binary directly when resolvable, so the
+        # injected env actually reaches the app. Shell activation (explorer
+        # shell:AppsFolder) runs it under an OS broker that strips our custom
+        # environment. Fall back to the broker only if resolution/launch fails.
+        exe = self._resolve_exe(status)
+        if exe:
+            try:
+                subprocess.Popen([exe], env=env, creationflags=_NO_WINDOW)
+                return
+            except OSError:
+                pass
+        subprocess.Popen(
+            ["explorer.exe", f"shell:AppsFolder\\{status.launch_target}"],
+            env=env, creationflags=_NO_WINDOW,
+        )
 
     def is_running(self, status: AppStatus) -> bool:
         if not status.match_root:
