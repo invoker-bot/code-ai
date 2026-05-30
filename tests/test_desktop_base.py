@@ -60,6 +60,16 @@ def test_matches_windows_style_paths_under_posix_abspath(monkeypatch):
     ) is True
 
 
+def test_ignored_exe_matches_windows_style_path_under_posix_basename(monkeypatch):
+    # POSIX basename treats backslashes as ordinary characters.
+    monkeypatch.setattr(base.os.path, "basename", lambda p: p.rsplit("/", 1)[-1])
+
+    assert base._ignored_exe(
+        r"C:\Apps\Claude\app\resources\cowork-svc.exe",
+        {"cowork-svc.exe"},
+    ) is True
+
+
 def test_stop_terminates_matches_and_children_not_others(monkeypatch):
     child = FakeProc(r"C:\Apps\Claude\helper.exe")
     match = FakeProc(r"C:\Apps\Claude\app\Claude.exe", children=[child])

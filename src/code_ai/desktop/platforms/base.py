@@ -45,7 +45,8 @@ def _ignored_exe_names(names: Iterable[str] = None) -> set:
 
 
 def _ignored_exe(exe: str, ignored_names: set) -> bool:
-    return bool(exe and os.path.normcase(os.path.basename(exe)) in ignored_names)
+    name = exe.replace("\\", "/").rsplit("/", 1)[-1] if exe else ""
+    return bool(name and os.path.normcase(name) in ignored_names)
 
 
 def any_process_under(roots: List[str], ignored_names: Iterable[str] = None) -> bool:
