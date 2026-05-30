@@ -139,3 +139,20 @@ src/code_ai/
 ## License
 
 MIT
+
+## Desktop launcher (`code-ai desktop`)
+
+A double-clickable GUI (Windows + macOS) that starts and Steam-style stops the
+Claude, ChatGPT, and Codex desktop apps. Each app has one button that toggles
+between **启动** (launch) and **中止** (stop), with a live running indicator.
+
+```bash
+pip install ai-code-switcher[desktop]   # one-time: install the GUI deps
+code-ai desktop install                 # create the double-click shortcut
+code-ai desktop run                     # open the launcher window
+code-ai desktop uninstall               # remove the shortcut (asks about settings)
+```
+
+Settings live in `~/.code-ai/desktop.yaml` (separate from CLI profiles): a
+"check system proxy" toggle, plus **通用** (common) and **专有** (per-app)
+environment variables. Per-app values override common values on a shared key.
