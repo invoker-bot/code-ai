@@ -1,5 +1,6 @@
 import importlib.resources
 import json
+import pathlib
 import threading
 import time
 
@@ -11,8 +12,11 @@ POLL_SECONDS = 1.5
 
 
 def _ui_url() -> str:
+    # Return a file:// URI, not a bare path: pywebview needs a real URL to load
+    # the page and resolve the relative style.css / app.js links reliably across
+    # platforms (a Windows backslash path can otherwise render a blank window).
     index = importlib.resources.files("code_ai.desktop").joinpath("ui", "index.html")
-    return str(index)
+    return pathlib.Path(str(index)).as_uri()
 
 
 def run_gui():
