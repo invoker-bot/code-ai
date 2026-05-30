@@ -35,9 +35,9 @@ class AppStatus:
 def _matches(exe: str, root: str) -> bool:
     if not exe or not root:
         return False
-    e = os.path.normcase(os.path.abspath(exe))
-    r = os.path.normcase(os.path.abspath(root))
-    return e == r or e.startswith(r + os.sep)
+    e = os.path.normcase(os.path.abspath(exe)).replace("\\", "/")
+    r = os.path.normcase(os.path.abspath(root)).replace("\\", "/").rstrip("/")
+    return e == r or e.startswith(r + "/")
 
 
 def _ignored_exe_names(names: Iterable[str] = None) -> set:

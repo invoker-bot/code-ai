@@ -47,6 +47,19 @@ def test_any_process_under_matches_directory_prefix(monkeypatch):
     assert base.any_process_under([""]) is False
 
 
+def test_matches_windows_style_paths_under_posix_abspath(monkeypatch):
+    # GitHub Actions runs these Windows backend tests on Linux. os.path.abspath
+    # there prefixes the repo cwd but leaves backslashes intact.
+    monkeypatch.setattr(base.os.path, "abspath", lambda p: "/repo/" + p)
+    monkeypatch.setattr(base.os.path, "normcase", lambda p: p)
+    monkeypatch.setattr(base.os, "sep", "/")
+
+    assert base._matches(
+        r"C:\Apps\Claude\app\Claude.exe",
+        r"C:\Apps\Claude",
+    ) is True
+
+
 def test_stop_terminates_matches_and_children_not_others(monkeypatch):
     child = FakeProc(r"C:\Apps\Claude\helper.exe")
     match = FakeProc(r"C:\Apps\Claude\app\Claude.exe", children=[child])
