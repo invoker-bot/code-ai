@@ -67,3 +67,74 @@ def test_proxy_enabled_false_when_no_winreg(monkeypatch):
     be = windows.WindowsBackend()
     monkeypatch.setattr(windows, "winreg", None)
     assert be.proxy_enabled() is False
+
+
+from src.code_ai.desktop.platforms import base as base_mod
+from src.code_ai.desktop.platforms.base import AppStatus
+
+
+def test_launch_brokered_uses_explorer_appsfolder(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(windows.subprocess, "Popen",
+                        lambda argv, env=None: calls.update(argv=argv, env=env))
+    be = windows.WindowsBackend()
+    st = AppStatus("claude", found=True, direct=False,
+                   launch_target="Claude_pzs8sxrjxfjjc!Claude", match_root="C:\\x")
+    be.launch(st, {"A": "1"})
+    assert calls["argv"] == ["explorer.exe", "shell:AppsFolder\\Claude_pzs8sxrjxfjjc!Claude"]
+    assert calls["env"] == {"A": "1"}
+
+
+def test_launch_direct_runs_exe(monkeypatch):
+    calls = {}
+    monkeypatch.setattr(windows.subprocess, "Popen",
+                        lambda argv, env=None: calls.update(argv=argv, env=env))
+    be = windows.WindowsBackend()
+    st = AppStatus("claude", found=True, direct=True,
+                   launch_target=r"C:\Apps\Claude.exe", match_root=r"C:\Apps\Claude.exe")
+    be.launch(st, {})
+    assert calls["argv"] == [r"C:\Apps\Claude.exe"]
+
+
+def test_is_running_and_stop_delegate_to_base(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(base_mod, "any_process_under", lambda roots: seen.setdefault("run", roots) or True)
+    monkeypatch.setattr(base_mod, "stop_processes_under", lambda roots: seen.setdefault("stop", roots))
+    be = windows.WindowsBackend()
+    st = AppStatus("claude", found=True, match_root=r"C:\Apps\Claude")
+    assert be.is_running(st) is True
+    be.stop(st)
+    assert seen["run"] == [r"C:\Apps\Claude"]
+    assert seen["stop"] == [r"C:\Apps\Claude"]
+
+
+def test_create_shortcut_idempotent_when_exists(monkeypatch, tmp_path):
+    desktop = tmp_path / "Desktop"
+    desktop.mkdir()
+    (desktop / "AI Launcher.lnk").write_text("x")
+    monkeypatch.setattr(windows.os.path, "expanduser", lambda p: str(tmp_path) if p == "~" else p)
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+
+    def boom(*a, **k):
+        raise AssertionError("should not shell out when shortcut exists")
+    monkeypatch.setattr(windows.subprocess, "run", boom)
+
+    be = windows.WindowsBackend()
+    path = be.create_shortcut()
+    assert path == str(desktop / "AI Launcher.lnk")
+
+
+def test_remove_shortcut_reports_paths(monkeypatch, tmp_path):
+    desktop = tmp_path / "Desktop"
+    desktop.mkdir()
+    lnk = desktop / "AI Launcher.lnk"
+    lnk.write_text("x")
+    monkeypatch.setattr(windows.os.path, "expanduser", lambda p: str(tmp_path) if p == "~" else p)
+    monkeypatch.delenv("APPDATA", raising=False)
+
+    be = windows.WindowsBackend()
+    removed = be.remove_shortcut()
+    assert str(lnk) in removed
+    assert not lnk.exists()
+    # second call: nothing to remove
+    assert be.remove_shortcut() == []

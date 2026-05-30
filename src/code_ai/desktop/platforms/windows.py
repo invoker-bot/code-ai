@@ -1,3 +1,4 @@
+import importlib.resources
 import json
 import os
 import subprocess
@@ -56,23 +57,84 @@ class WindowsBackend:
         except Exception:
             return False
 
-    # ---- launch / monitor (filled in Task 7) ----
+    # ---- launch / monitor ----
     def launch(self, status: AppStatus, env: dict) -> None:
-        raise NotImplementedError
+        if status.direct:
+            subprocess.Popen([status.launch_target], env=env)
+        else:
+            subprocess.Popen(
+                ["explorer.exe", f"shell:AppsFolder\\{status.launch_target}"],
+                env=env,
+            )
 
     def is_running(self, status: AppStatus) -> bool:
-        raise NotImplementedError
+        if not status.match_root:
+            return False
+        return bool(base.any_process_under([status.match_root]))
 
     def stop(self, status: AppStatus) -> None:
-        raise NotImplementedError
+        if status.match_root:
+            base.stop_processes_under([status.match_root])
 
     # ---- file dialog filter ----
     def pick_path_filter(self) -> tuple:
         return ("Executable (*.exe)",)
 
-    # ---- shortcut (filled in Task 7) ----
+    # ---- shortcut ----
+    def _shortcut_paths(self):
+        paths = [os.path.join(os.path.expanduser("~"), "Desktop", "AI Launcher.lnk")]
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            paths.append(os.path.join(
+                appdata, "Microsoft", "Windows", "Start Menu", "Programs",
+                "AI Launcher.lnk",
+            ))
+        return paths
+
+    def _icon_path(self):
+        try:
+            icon = importlib.resources.files("code_ai.desktop").joinpath(
+                "ui", "icon.ico")
+        except (ModuleNotFoundError, FileNotFoundError, TypeError):
+            return ""
+        return str(icon)
+
     def create_shortcut(self) -> str:
-        raise NotImplementedError
+        pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+        if not os.path.exists(pythonw):
+            pythonw = sys.executable
+        icon = self._icon_path()
+        paths = self._shortcut_paths()
+        # Idempotent: if any shortcut already exists, do nothing (no shell-out).
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        created = []
+        for path in paths:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            self._write_lnk(path, pythonw, "-m code_ai.cli desktop run", icon)
+            created.append(path)
+        return created[0] if created else ""
+
+    def _write_lnk(self, path, target, args, icon):
+        icon_line = f'$s.IconLocation = "{icon}"\n' if os.path.exists(icon) else ""
+        script = (
+            "$ws = New-Object -ComObject WScript.Shell\n"
+            f'$s = $ws.CreateShortcut("{path}")\n'
+            f'$s.TargetPath = "{target}"\n'
+            f'$s.Arguments = "{args}"\n'
+            f"{icon_line}"
+            "$s.Save()\n"
+        )
+        subprocess.run(["powershell", "-NoProfile", "-Command", script], check=False)
 
     def remove_shortcut(self) -> list:
-        raise NotImplementedError
+        removed = []
+        for path in self._shortcut_paths():
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                    removed.append(path)
+                except OSError:
+                    pass
+        return removed
