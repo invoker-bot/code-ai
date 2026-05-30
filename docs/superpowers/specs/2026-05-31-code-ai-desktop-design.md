@@ -8,7 +8,13 @@
 
 ## 1. Overview & scope
 
-`code-ai desktop` adds a new subcommand that creates a double-clickable desktop shortcut (once) and opens a small GUI window (pywebview). The window shows one card per supported AI desktop app — **Claude**, **ChatGPT**, **Codex** — each with a single button that behaves like Steam's play/stop control:
+`code-ai desktop` is a new **command group**:
+
+- `code-ai desktop install` — create the double-click desktop shortcut (idempotent).
+- `code-ai desktop run` — open the GUI window (pywebview). This is what the shortcut launches.
+- `code-ai desktop uninstall` — remove the shortcut (and optionally the config).
+
+The GUI window shows one card per supported AI desktop app — **Claude**, **ChatGPT**, **Codex** — each with a single button that behaves like Steam's play/stop control:
 
 - When the app is **stopped**, the button reads **启动** (Launch).
 - When the app is **running**, the same button flips to **中止** (Stop) and a status indicator shows it as running.
@@ -72,7 +78,10 @@ class PlatformBackend(Protocol):
     #   file-dialog filter: (".exe",) on Windows, (".app",) on macOS
 
     def create_shortcut(self) -> str: ...
-    #   creates the double-click launcher, returns its path
+    #   creates the double-click launcher (targets `desktop run`), returns its path
+
+    def remove_shortcut(self) -> list[str]: ...
+    #   deletes the launcher shortcut(s), returns the paths removed (empty if none)
 ```
 
 ### Design rationale
@@ -248,16 +257,24 @@ Web assets are plain HTML/CSS/JS shipped as package data and loaded via `importl
 
 ---
 
-## 8. `code-ai desktop` command + shortcut (per-OS `create_shortcut()`)
+## 8. `code-ai desktop` command group + shortcut (per-OS `create_shortcut()` / `remove_shortcut()`)
 
-New Typer command in `cli.py`:
+`desktop` is a Typer sub-app added to `cli.py` via `app.add_typer(desktop_app, name="desktop")`, with three commands. Only `run` needs the `[desktop]` extra, so `install` / `uninstall` work even when pywebview/psutil are not installed. On unsupported platforms every subcommand prints the "Windows and macOS only" message and exits early.
 
-1. **Idempotent shortcut:** if the double-click launcher is missing, create it; else leave it. "Create only if missing" makes the "install + open" action safely repeatable.
-   - **Windows:** `Desktop\AI Launcher.lnk` (+ Start-Menu copy) via `WScript.Shell` (COM, no new dependency). Target `pythonw.exe -m code_ai.cli desktop`, icon `ui/icon.ico` → opens with **no console window**.
-   - **macOS:** `~/Desktop/AI Launcher.app` built via `osacompile` (preinstalled) wrapping `do shell script "<python> -m code_ai.cli desktop &> /dev/null &"`, with `ui/icon.icns` dropped into the bundle's `Resources`. Double-clicks like a native app, **no Terminal window**.
-2. **Open the GUI** (always).
+### `code-ai desktop install`
+Creates the double-click launcher **idempotently** (if present, leaves it and reports the path). The shortcut targets `code-ai desktop run`.
+- **Windows:** `Desktop\AI Launcher.lnk` (+ Start-Menu copy) via `WScript.Shell` (COM, no new dependency). Target `pythonw.exe -m code_ai.cli desktop run`, icon `ui/icon.ico` → opens with **no console window**.
+- **macOS:** `~/Desktop/AI Launcher.app` built via `osacompile` (preinstalled) wrapping `do shell script "<python> -m code_ai.cli desktop run &> /dev/null &"`, with `ui/icon.icns` dropped into the bundle's `Resources`. Double-clicks like a native app, **no Terminal window**.
 
-Flag: `--no-shortcut` skips step 1 (open only). On unsupported platforms the command prints the "Windows and macOS only" message and exits before any of the above.
+On success it prints where the shortcut was created and the hint that the GUI can also be opened with `code-ai desktop run`. (It does **not** auto-open the GUI — `run` is the explicit open action.)
+
+### `code-ai desktop run`
+Opens the pywebview GUI (the window in §7). Lazily imports pywebview/psutil; if the `[desktop]` extra is missing, prints the exact `pip install ai-code-switcher[desktop]` command and exits cleanly. This is the command the shortcut launches and the one a user can call directly.
+
+### `code-ai desktop uninstall`
+Removes the shortcut, then **asks about config**:
+1. Delete the shortcut(s): Windows `.lnk` (Desktop + Start-Menu); macOS `~/Desktop/AI Launcher.app`. Missing shortcut → report "nothing to remove", no error.
+2. Prompt: `Also delete launcher settings (~/.code-ai/desktop.yaml)? [y/N]` (default **No** → settings survive a reinstall). `--purge` answers yes non-interactively; `--keep-config` answers no non-interactively (both skip the prompt, useful for scripts).
 
 ---
 
@@ -281,6 +298,7 @@ The `desktop` command imports `pywebview` / `psutil` **lazily**; if missing it p
 Follows the existing `from src.code_ai...` import style and `unittest.mock` patterns. Focus on the platform-agnostic logic and on each backend's pure-logic parts (string/path/parse), mocking the OS calls. Backend selection lets tests target either backend regardless of host OS.
 
 - **Backend selection** — `get_backend()` returns Windows backend for `win32`, macOS for `darwin`, `None` (→ friendly exit) otherwise.
+- **Command group** — `install` is idempotent (second call is a no-op that reports the existing path); `uninstall` with `--purge` deletes `desktop.yaml`, with `--keep-config` preserves it; `uninstall` on a missing shortcut reports "nothing to remove" without error. (Shortcut creation/removal itself is backend-mocked; the command wiring and the config-prompt branch are what's asserted.)
 - **`apps.py` / detection (Windows)** — family-signature regex matches versioned folder names; configured custom path wins; not-found state.
 - **detection (macOS)** — bundle resolution by id with fallback to `/Applications` and `~/Applications`; custom `.app` path wins. (`mdfind` / filesystem mocked.)
 - **process logic** — `is_running` / `stop` driven by a **fake psutil** (monkeypatched `process_iter` / fake procs): assert path-matching (under WindowsApps folder vs under `.app` bundle) and the terminate→wait→kill escalation. No real processes spawned.
@@ -302,7 +320,7 @@ The existing `test_integration.py` input-mock lists are **untouched** — this f
 - `tests/test_desktop_backend.py`, `tests/test_desktop_detect.py`, `tests/test_desktop_process.py`, `tests/test_desktop_proxy.py`, `tests/test_desktop_config.py`, `tests/test_desktop_env.py`, `tests/test_desktop_bridge.py`
 
 **Modified:**
-- `src/code_ai/cli.py` — add the `desktop` command (lazy import of the desktop package)
+- `src/code_ai/cli.py` — add the `desktop` Typer sub-app (`install` / `run` / `uninstall`; pywebview/psutil lazily imported inside `run` only)
 - `pyproject.toml` — `[project.optional-dependencies] desktop`, `package-data` for `ui/`
 
 **Untouched:** `models.py`, `launcher.py`, `config.py` (profiles), `profiles.py`, `buddy.py`, and all existing tests.
