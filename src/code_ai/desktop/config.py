@@ -1,0 +1,68 @@
+from pathlib import Path
+
+import yaml
+
+DESKTOP_CONFIG_FILE = Path.home() / ".code-ai" / "desktop.yaml"
+
+DEFAULTS = {
+    "check_system_proxy": True,
+    "env_vars": {},   # 通用 (common) — every app launch
+    "apps": {},       # per-app: {<id>: {"path": str, "env_vars": {...}}}
+}
+
+
+def load_desktop_config() -> dict:
+    """Load desktop.yaml, creating it with defaults on first use."""
+    if not DESKTOP_CONFIG_FILE.exists():
+        save_desktop_config({k: (dict(v) if isinstance(v, dict) else v)
+                             for k, v in DEFAULTS.items()})
+    with open(DESKTOP_CONFIG_FILE, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    data.setdefault("check_system_proxy", True)
+    data.setdefault("env_vars", {})
+    data.setdefault("apps", {})
+    return data
+
+
+def save_desktop_config(data: dict) -> None:
+    DESKTOP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(DESKTOP_CONFIG_FILE, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+
+def get_check_system_proxy(data: dict) -> bool:
+    return bool(data.get("check_system_proxy", True))
+
+
+def set_check_system_proxy(data: dict, value: bool) -> None:
+    data["check_system_proxy"] = bool(value)
+
+
+def get_common_env(data: dict) -> dict:
+    return dict(data.get("env_vars") or {})
+
+
+def set_common_env(data: dict, env: dict) -> None:
+    data["env_vars"] = dict(env)
+
+
+def _app_block(data: dict, app_id: str) -> dict:
+    return data.setdefault("apps", {}).setdefault(app_id, {})
+
+
+def get_app_env(data: dict, app_id: str) -> dict:
+    block = (data.get("apps") or {}).get(app_id) or {}
+    return dict(block.get("env_vars") or {})
+
+
+def set_app_env(data: dict, app_id: str, env: dict) -> None:
+    _app_block(data, app_id)["env_vars"] = dict(env)
+
+
+def get_app_path(data: dict, app_id: str):
+    block = (data.get("apps") or {}).get(app_id) or {}
+    return block.get("path")
+
+
+def set_app_path(data: dict, app_id: str, path: str) -> None:
+    _app_block(data, app_id)["path"] = path
