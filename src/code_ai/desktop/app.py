@@ -27,6 +27,8 @@ def _ui_url() -> str:
 
 
 def _window_icon_path() -> str:
+    if sys.platform == "win32":
+        return str(_ui_asset_path("icon.ico"))
     return str(_ui_asset_path("icon.png"))
 
 

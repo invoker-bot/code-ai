@@ -114,10 +114,11 @@ def test_run_gui_exposes_only_js_api_methods_to_pywebview(monkeypatch, tmp_path)
         "src.code_ai.desktop.config.DESKTOP_CONFIG_FILE",
         tmp_path / "desktop.yaml",
     )
+    monkeypatch.setattr(app_mod.sys, "platform", "win32")
 
     app_mod.run_gui()
 
-    assert captured["start_kwargs"]["icon"].endswith("icon.png")
+    assert captured["start_kwargs"]["icon"].endswith("icon.ico")
     assert len(fake_window.events.shown.items) == 1
     assert _pywebview_exposed_functions(captured["js_api"]) == {
         "get_app_settings",
