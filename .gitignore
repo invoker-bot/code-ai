@@ -138,4 +138,3 @@ Thumbs.db
 
 # Local agent/runtime files
 .claude/scheduled_tasks.lock
-AGENTS.md
