@@ -20,9 +20,10 @@ def temp_desktop_config():
 
 
 class FakeBackend:
-    def __init__(self, found=True, proxy=True):
+    def __init__(self, found=True, proxy=True, running=False):
         self.found = found
         self.proxy = proxy
+        self.running = running
         self.launched = None
         self.stopped = None
 
@@ -34,7 +35,7 @@ class FakeBackend:
         self.launched = (status, env)
 
     def is_running(self, status):
-        return False
+        return self.running
 
     def stop(self, status):
         self.stopped = status
@@ -100,6 +101,17 @@ def test_launch_merges_env_with_per_app_winning():
             assert env["SHARED"] == "app"     # 专有 wins
             assert env["C_ONLY"] == "1"
             assert env["A_ONLY"] == "2"
+
+
+def test_launch_blocked_when_app_already_running():
+    with temp_desktop_config() as f:
+        with patch("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f):
+            be = FakeBackend(found=True, proxy=True, running=True)
+            b = LauncherBridge(be, APP_REGISTRY)
+            result = b.launch_app("claude")
+            assert result["ok"] is False
+            assert "已在运行" in result["error"]
+            assert be.launched is None
 
 
 def test_stop_app_not_found_returns_error():

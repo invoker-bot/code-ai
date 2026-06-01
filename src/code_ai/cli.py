@@ -171,6 +171,16 @@ app.add_typer(desktop_app, name="desktop")
 _DESKTOP_UNSUPPORTED = "code-ai desktop is supported on Windows and macOS only."
 
 
+def _require_desktop_extra() -> None:
+    try:
+        import webview  # noqa: F401
+        import psutil  # noqa: F401
+    except ImportError:
+        typer.echo("The desktop launcher needs extra dependencies.")
+        typer.echo("Install them with: pip install ai-code-switcher[desktop]")
+        raise typer.Exit(1)
+
+
 @desktop_app.command("install")
 def desktop_install():
     """Create or recreate the double-click desktop shortcut."""
@@ -180,6 +190,8 @@ def desktop_install():
     if backend is None:
         typer.echo(_DESKTOP_UNSUPPORTED)
         raise typer.Exit(1)
+
+    _require_desktop_extra()
 
     for removed_path in backend.remove_shortcut():
         typer.echo(f"Removed existing shortcut: {removed_path}")
@@ -202,13 +214,7 @@ def desktop_run():
     if backend is None:
         typer.echo(_DESKTOP_UNSUPPORTED)
         raise typer.Exit(1)
-    try:
-        import webview  # noqa: F401
-        import psutil  # noqa: F401
-    except ImportError:
-        typer.echo("The desktop launcher needs extra dependencies.")
-        typer.echo("Install them with: pip install ai-code-switcher[desktop]")
-        raise typer.Exit(1)
+    _require_desktop_extra()
     from .desktop.app import run_gui
 
     run_gui()
@@ -302,6 +308,5 @@ def upgrade():
 
 if __name__ == "__main__":
     app()
-
 
 

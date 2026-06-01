@@ -63,6 +63,8 @@ class LauncherBridge:
         self._status[app_id] = status
         if not status.found:
             return {"ok": False, "error": "未检测到应用，请先配置路径"}
+        if self._backend.is_running(status):
+            return {"ok": False, "error": "应用已在运行，请先中止后再启动以应用环境变量"}
         env = merge_env(os.environ,
                         cfg.get_common_env(data),
                         cfg.get_app_env(data, app_id))

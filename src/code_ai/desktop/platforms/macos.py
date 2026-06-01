@@ -9,6 +9,8 @@ import sys
 from . import base
 from .base import AppStatus
 
+_IGNORED_RUNNING_PROCESS_NAMES = {"browser_crashpad_handler"}
+
 
 class MacBackend:
     # ---- detection ----
@@ -84,7 +86,10 @@ class MacBackend:
     def is_running(self, status: AppStatus) -> bool:
         if not status.match_root:
             return False
-        return bool(base.any_process_under([status.match_root]))
+        return bool(base.any_process_under(
+            [status.match_root],
+            ignored_names=_IGNORED_RUNNING_PROCESS_NAMES,
+        ))
 
     def stop(self, status: AppStatus) -> None:
         if status.match_root:

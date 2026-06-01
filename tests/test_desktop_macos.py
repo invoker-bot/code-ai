@@ -87,13 +87,16 @@ def test_launch_direct_runs_binary(monkeypatch):
 
 def test_is_running_and_stop_delegate_to_base(monkeypatch):
     seen = {}
-    monkeypatch.setattr(base_mod, "any_process_under", lambda roots: seen.setdefault("run", roots) or True)
+    monkeypatch.setattr(
+        base_mod, "any_process_under",
+        lambda roots, ignored_names=None: seen.setdefault("run", (roots, ignored_names)) or True,
+    )
     monkeypatch.setattr(base_mod, "stop_processes_under", lambda roots: seen.setdefault("stop", roots))
     be = macos.MacBackend()
     st = AppStatus("claude", found=True, match_root="/Applications/Claude.app")
     assert be.is_running(st) is True
     be.stop(st)
-    assert seen["run"] == ["/Applications/Claude.app"]
+    assert seen["run"] == (["/Applications/Claude.app"], {"browser_crashpad_handler"})
     assert seen["stop"] == ["/Applications/Claude.app"]
 
 

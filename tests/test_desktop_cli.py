@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from pathlib import Path
 import shutil
+import sys
+import types
 from uuid import uuid4
 
 from typer.testing import CliRunner
@@ -34,7 +36,13 @@ class FakeBackend:
         return self.removed
 
 
+def fake_desktop_extra(monkeypatch):
+    monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace())
+    monkeypatch.setitem(sys.modules, "psutil", types.SimpleNamespace())
+
+
 def test_install_creates_shortcut(monkeypatch):
+    fake_desktop_extra(monkeypatch)
     monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: FakeBackend())
     result = runner.invoke(app, ["desktop", "install"])
     assert result.exit_code == 0
@@ -42,6 +50,7 @@ def test_install_creates_shortcut(monkeypatch):
 
 
 def test_install_recreates_existing_shortcut(monkeypatch):
+    fake_desktop_extra(monkeypatch)
     backend = FakeBackend(removed=["/path/AI Launcher.lnk"])
     monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: backend)
 
@@ -51,6 +60,25 @@ def test_install_recreates_existing_shortcut(monkeypatch):
     assert backend.calls == ["remove", "create"]
     assert "Removed existing shortcut" in result.output
     assert "Shortcut ready" in result.output
+
+
+def test_install_missing_extra_prints_hint_and_does_not_create_shortcut(monkeypatch):
+    backend = FakeBackend()
+    monkeypatch.setattr("src.code_ai.desktop.platforms.get_backend", lambda: backend)
+    # Force the optional-extra import check to fail.
+    import builtins
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "webview":
+            raise ImportError("no webview")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    result = runner.invoke(app, ["desktop", "install"])
+    assert result.exit_code == 1
+    assert "ai-code-switcher[desktop]" in result.output
+    assert backend.calls == []
 
 
 def test_install_unsupported_platform(monkeypatch):
