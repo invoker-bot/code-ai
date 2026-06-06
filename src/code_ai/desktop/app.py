@@ -32,21 +32,6 @@ def _window_icon_path() -> str:
     return str(_ui_asset_path("icon.png"))
 
 
-def _apply_windows_titlebar_icon(window) -> None:
-    if sys.platform != "win32":
-        return
-    icon = _ui_asset_path("icon.ico")
-    native = getattr(window, "native", None)
-    if not native or not icon.is_file():
-        return
-    try:
-        from System.Drawing import Icon
-
-        native.Icon = Icon(str(icon))
-    except Exception:
-        pass
-
-
 def run_gui():
     """Open the launcher window. Imports webview lazily (optional [desktop] extra)."""
     backend = get_backend()
@@ -61,7 +46,6 @@ def run_gui():
         "AI Launcher", url=_ui_url(), js_api=bridge, width=760, height=560,
     )
     bridge._attach_window(window, webview.OPEN_DIALOG)
-    window.events.shown += _apply_windows_titlebar_icon
 
     def poll():
         while True:

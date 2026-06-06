@@ -119,7 +119,12 @@ def test_run_gui_exposes_only_js_api_methods_to_pywebview(monkeypatch, tmp_path)
     app_mod.run_gui()
 
     assert captured["start_kwargs"]["icon"].endswith("icon.ico")
-    assert len(fake_window.events.shown.items) == 1
+    # No `shown` handler may touch the native window. pywebview dispatches shown
+    # callbacks on a background thread; mutating a WinForms control (e.g.
+    # native.Icon) off the GUI/STA thread issues a cross-thread SendMessage that
+    # deadlocks the message pump -> the window hangs "Not Responding". The titlebar
+    # icon is set safely via start(icon=) (asserted above), so no handler is needed.
+    assert len(fake_window.events.shown.items) == 0
     assert _pywebview_exposed_functions(captured["js_api"]) == {
         "get_app_settings",
         "get_settings",
