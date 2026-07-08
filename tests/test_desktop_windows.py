@@ -218,6 +218,33 @@ def test_create_shortcut_quotes_paths_for_powershell(monkeypatch, tmp_path):
     assert captured["creationflags"] == windows._NO_WINDOW
 
 
+def test_create_shortcut_uses_desktop_python_env(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    pyhome = tmp_path / "py312"
+    pyhome.mkdir()
+    python = pyhome / "python.exe"
+    pythonw = pyhome / "pythonw.exe"
+    python.write_text("x")
+    pythonw.write_text("x")
+    monkeypatch.setenv("CODE_AI_DESKTOP_PYTHON", str(python))
+    monkeypatch.setattr(windows.os.path, "expanduser",
+                        lambda p: str(home) if p == "~" else p)
+    monkeypatch.delenv("APPDATA", raising=False)
+    monkeypatch.setattr(windows.WindowsBackend, "_icon_path", lambda self: r"C:\nope\icon.ico")
+
+    captured = {}
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda argv, check=False, creationflags=0: captured.update(
+                            argv=argv, creationflags=creationflags))
+
+    be = windows.WindowsBackend()
+    be.create_shortcut()
+
+    script = captured["argv"][-1]
+    assert f"$s.TargetPath = '{pythonw}'" in script
+
+
 def _make_fake_msix(tmp_path, app_id="ChatGPT", exe_rel="app\\ChatGPT.exe"):
     """Create a fake MSIX InstallLocation: an AppxManifest.xml + on-disk exe.
 
@@ -322,6 +349,25 @@ def test_launch_brokered_prefers_real_exe_so_env_propagates(monkeypatch, tmp_pat
                    match_root=str(tmp_path))
     be.launch(st, {"INJECTED": "1"})
     assert calls["argv"] == [exe]
+    assert calls["env"] == {"INJECTED": "1"}
+    assert calls["creationflags"] == windows._NO_WINDOW
+
+
+def test_launch_codex_uses_broker_to_preserve_msix_context(monkeypatch, tmp_path):
+    _make_fake_msix(tmp_path, app_id="App", exe_rel="app\\Codex.exe")
+    calls = {}
+    monkeypatch.setattr(windows.subprocess, "Popen",
+                        lambda argv, env=None, creationflags=0: calls.update(
+                            argv=argv, env=env, creationflags=creationflags))
+    be = windows.WindowsBackend()
+    st = AppStatus("codex", found=True, direct=False,
+                   launch_target="OpenAI.Codex_2p2nqsd0c76g0!App",
+                   match_root=str(tmp_path))
+    be.launch(st, {"INJECTED": "1"})
+    assert calls["argv"] == [
+        "explorer.exe",
+        "shell:AppsFolder\\OpenAI.Codex_2p2nqsd0c76g0!App",
+    ]
     assert calls["env"] == {"INJECTED": "1"}
     assert calls["creationflags"] == windows._NO_WINDOW
 

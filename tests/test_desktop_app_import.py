@@ -22,6 +22,15 @@ def test_ui_assets_are_packaged():
     assert (ui / "app.js").is_file()
 
 
+def test_ui_lists_launch_and_stop_actions_without_status_push_hook():
+    from pathlib import Path
+    script = (Path(app_mod.__file__).parent / "ui" / "app.js").read_text(encoding="utf-8")
+
+    assert 'onAction(a.id, "launch")' in script
+    assert 'onAction(a.id, "stop")' in script
+    assert "window.updateStatus" not in script
+
+
 def test_ui_url_is_file_uri():
     # pywebview must receive a file:// URI (not a bare OS path) so the window
     # actually renders and relative asset links resolve.
@@ -135,3 +144,36 @@ def test_run_gui_exposes_only_js_api_methods_to_pywebview(monkeypatch, tmp_path)
         "save_settings",
         "stop_app",
     }
+
+
+def test_run_gui_does_not_start_background_status_poll(monkeypatch, tmp_path):
+    captured = {"threads": []}
+    fake_window = _FakeWindow()
+
+    def create_window(_title, url, js_api, width, height):
+        return fake_window
+
+    class Thread:
+        def __init__(self, *args, **kwargs):
+            captured["threads"].append((args, kwargs))
+
+        def start(self):
+            raise AssertionError("run_gui must not start a background poll thread")
+
+    fake_webview = types.SimpleNamespace(
+        OPEN_DIALOG=20,
+        create_window=create_window,
+        start=lambda **kwargs: captured.update(start_kwargs=kwargs),
+    )
+
+    monkeypatch.setitem(sys.modules, "webview", fake_webview)
+    monkeypatch.setattr(app_mod, "get_backend", lambda: _FakeBackend())
+    monkeypatch.setattr(app_mod, "threading", types.SimpleNamespace(Thread=Thread), raising=False)
+    monkeypatch.setattr(
+        "src.code_ai.desktop.config.DESKTOP_CONFIG_FILE",
+        tmp_path / "desktop.yaml",
+    )
+
+    app_mod.run_gui()
+
+    assert captured["threads"] == []

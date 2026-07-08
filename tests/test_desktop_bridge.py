@@ -26,18 +26,21 @@ class FakeBackend:
         self.running = running
         self.launched = None
         self.stopped = None
+        self.calls = []
 
     def detect(self, app, override):
         return AppStatus(app.id, found=self.found, direct=False,
                          launch_target="t", match_root="r")
 
     def launch(self, status, env):
+        self.calls.append("launch")
         self.launched = (status, env)
 
     def is_running(self, status):
         return self.running
 
     def stop(self, status):
+        self.calls.append("stop")
         self.stopped = status
 
     def proxy_enabled(self):
@@ -103,15 +106,16 @@ def test_launch_merges_env_with_per_app_winning():
             assert env["A_ONLY"] == "2"
 
 
-def test_launch_blocked_when_app_already_running():
+def test_launch_stops_running_app_before_starting():
     with temp_desktop_config() as f:
         with patch("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f):
             be = FakeBackend(found=True, proxy=True, running=True)
             b = LauncherBridge(be, APP_REGISTRY)
             result = b.launch_app("claude")
-            assert result["ok"] is False
-            assert "已在运行" in result["error"]
-            assert be.launched is None
+            assert result["ok"] is True
+            assert be.calls == ["stop", "launch"]
+            assert be.stopped is not None
+            assert be.launched is not None
 
 
 def test_stop_app_not_found_returns_error():

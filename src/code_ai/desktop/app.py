@@ -1,14 +1,9 @@
-import json
 import pathlib
 import sys
-import threading
-import time
 
 from .apps import APP_REGISTRY
 from .bridge import LauncherBridge
 from .platforms import get_backend
-
-POLL_SECONDS = 1.5
 
 
 def _ui_asset_path(name: str) -> pathlib.Path:
@@ -46,15 +41,4 @@ def run_gui():
         "AI Launcher", url=_ui_url(), js_api=bridge, width=760, height=560,
     )
     bridge._attach_window(window, webview.OPEN_DIALOG)
-
-    def poll():
-        while True:
-            time.sleep(POLL_SECONDS)
-            try:
-                payload = json.dumps(bridge._statuses())
-                window.evaluate_js(f"window.updateStatus({payload})")
-            except Exception:
-                break
-
-    threading.Thread(target=poll, daemon=True).start()
     webview.start(icon=_window_icon_path())

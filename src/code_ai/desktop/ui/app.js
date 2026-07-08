@@ -29,10 +29,16 @@ function renderApps() {
       `<button class="cfg" title="专有设置">⚙</button>` +
       `<div class="title">${esc(a.display)}</div>` +
       `<div class="status" id="status-${esc(a.id)}"></div>` +
-      `<button class="action" id="btn-${esc(a.id)}"></button>`;
+      `<div class="card-actions">` +
+      `<button class="action" id="btn-launch-${esc(a.id)}" data-mode="launch">启动</button>` +
+      `<button class="action" id="btn-stop-${esc(a.id)}" data-mode="stop">中止</button>` +
+      `<button class="action" id="btn-config-${esc(a.id)}" data-mode="config">配置路径</button>` +
+      `</div>`;
     grid.appendChild(card);
     updateCard(a.id, a.found, a.running);
-    document.getElementById(`btn-${a.id}`).onclick = () => onAction(a.id);
+    document.getElementById(`btn-launch-${a.id}`).onclick = () => onAction(a.id, "launch");
+    document.getElementById(`btn-stop-${a.id}`).onclick = () => onAction(a.id, "stop");
+    document.getElementById(`btn-config-${a.id}`).onclick = () => onAction(a.id, "config");
     card.querySelector(".cfg").onclick = () => openAppSettings(a.id);
   }
 }
@@ -41,22 +47,29 @@ function updateCard(id, found, running) {
   const a = findApp(id);
   if (a) { a.found = found; a.running = running; }
   const s = document.getElementById(`status-${id}`);
-  const b = document.getElementById(`btn-${id}`);
-  if (!s || !b) return;
+  const launch = document.getElementById(`btn-launch-${id}`);
+  const stop = document.getElementById(`btn-stop-${id}`);
+  const config = document.getElementById(`btn-config-${id}`);
+  if (!s || !launch || !stop || !config) return;
   if (!found) {
     s.textContent = "⚠ 未检测到"; s.className = "status warn";
-    b.textContent = "配置路径"; b.dataset.mode = "config";
+    launch.disabled = true;
+    stop.disabled = true;
+    config.hidden = false;
   } else if (running) {
     s.textContent = "● 运行中"; s.className = "status on";
-    b.textContent = "中止"; b.dataset.mode = "stop";
+    launch.disabled = false;
+    stop.disabled = false;
+    config.hidden = true;
   } else {
     s.textContent = "○ 已停止"; s.className = "status off";
-    b.textContent = "启动"; b.dataset.mode = "launch";
+    launch.disabled = false;
+    stop.disabled = false;
+    config.hidden = true;
   }
 }
 
-async function onAction(id) {
-  const mode = document.getElementById(`btn-${id}`).dataset.mode;
+async function onAction(id, mode) {
   if (mode === "config") {
     const r = await api().pick_app_path(id);
     if (r && r.ok) await refresh();
@@ -76,13 +89,6 @@ async function refresh() {
   APPS = await api().list_apps();
   for (const a of APPS) updateCard(a.id, a.found, a.running);
 }
-
-window.updateStatus = (map) => {
-  for (const id in map) {
-    const a = findApp(id);
-    if (a) updateCard(id, a.found, map[id]);
-  }
-};
 
 function toast(msg) {
   const t = document.getElementById("toast");

@@ -143,8 +143,9 @@ MIT
 ## Desktop launcher (`code-ai desktop`)
 
 A double-clickable GUI (Windows + macOS) that starts and Steam-style stops the
-Claude, ChatGPT, and Codex desktop apps. Each app has one button that toggles
-between **启动** (launch) and **中止** (stop), with a live running indicator.
+Claude, ChatGPT, and Codex desktop apps. Each detected app shows separate launch
+and stop actions; launch first stops any running instance so the new environment
+is applied cleanly.
 
 ```bash
 pip install ai-code-switcher[desktop]   # one-time: install the GUI deps

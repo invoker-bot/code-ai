@@ -26,6 +26,8 @@ _IGNORED_PROCESS_NAMES = {
     "claude": ("cowork-svc.exe",),
 }
 
+_DESKTOP_PYTHON_ENV = "CODE_AI_DESKTOP_PYTHON"
+
 
 class WindowsBackend:
     # ---- detection ----
@@ -128,6 +130,15 @@ class WindowsBackend:
             subprocess.Popen([status.launch_target], env=env,
                              creationflags=_NO_WINDOW)
             return
+        if status.app_id == "codex":
+            # Codex's Windows app starts its own sandbox helpers from the MSIX
+            # package. Launching through the OS broker preserves package
+            # activation context and avoids direct WindowsApps process quirks.
+            subprocess.Popen(
+                ["explorer.exe", f"shell:AppsFolder\\{status.launch_target}"],
+                env=env, creationflags=_NO_WINDOW,
+            )
+            return
         # Brokered MSIX: launch the real binary directly when resolvable, so the
         # injected env actually reaches the app. Shell activation (explorer
         # shell:AppsFolder) runs it under an OS broker that strips our custom
@@ -182,10 +193,24 @@ class WindowsBackend:
             return ""
         return str(icon)
 
-    def create_shortcut(self) -> str:
+    @staticmethod
+    def _shortcut_python():
+        override = os.environ.get(_DESKTOP_PYTHON_ENV)
+        if override:
+            candidate = os.path.expandvars(os.path.expanduser(override.strip('"')))
+            if os.path.basename(candidate).lower() == "python.exe":
+                pythonw = os.path.join(os.path.dirname(candidate), "pythonw.exe")
+                if os.path.exists(pythonw):
+                    return pythonw
+            if os.path.exists(candidate):
+                return candidate
         pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
         if not os.path.exists(pythonw):
             pythonw = sys.executable
+        return pythonw
+
+    def create_shortcut(self) -> str:
+        pythonw = self._shortcut_python()
         icon = self._icon_path()
         paths = self._shortcut_paths()
         # Idempotent: if any shortcut already exists, do nothing (no shell-out).

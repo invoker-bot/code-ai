@@ -28,6 +28,12 @@ header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
 .status.on { color: #46d27e; }
 .status.off { color: #8a909a; }
 .status.warn { color: #e0a93b; }
+.card-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
 .action {
   width: 100%; padding: 9px 0; border-radius: 9px; border: none;
   cursor: pointer; font-size: 14px; font-weight: 600;
@@ -35,7 +41,9 @@ header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
 }
 .action:hover { filter: brightness(1.08); }
 .action[data-mode="stop"] { background: #b5453d; }
-.action[data-mode="config"] { background: #4a5160; }
+.action[data-mode="config"] { background: #4a5160; grid-column: 1 / -1; }
+.action:disabled { opacity: .45; cursor: default; filter: none; }
+.action[hidden] { display: none; }
 .panel {
   padding: 18px 20px; border-top: 1px solid #262a31;
 }
