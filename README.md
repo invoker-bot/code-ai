@@ -4,7 +4,7 @@ Switch AI coding tool profiles and launch the correct CLI.
 
 ## Features
 
-- Manage multiple AI coding tool profiles for Claude, Codex, and Gemini
+- Manage multiple AI coding tool profiles for Claude, Codex, and Grok
 - Switch between API-mode and login-mode profiles
 - Launch the matching CLI through one command entrypoint
 - Per-profile default launch arguments (e.g., always pass `--model ...`)
@@ -39,7 +39,7 @@ code-ai show <profile-name>
 Launch a profile:
 
 ```bash
-code-ai run fox-gemini
+code-ai run fox-grok
 code-ai run 4399
 code-ai run fox-claude -p "hi"
 code-ai run --no-default-args fox-claude --model sonnet  # bypass profile defaults
@@ -102,7 +102,7 @@ This upgrades:
 
 - `@anthropic-ai/claude-code`
 - `@openai/codex`
-- `@google/gemini-cli`
+- `@xai-official/grok`
 
 Version:
 
@@ -119,6 +119,10 @@ code-ai --help
 ## Configuration
 
 Profiles are stored under `~/.code-ai/config.yaml`.
+
+Grok profiles support both modes. API mode sets `XAI_API_KEY` and optionally
+`GROK_CLI_CHAT_PROXY_BASE_URL`; login mode isolates browser credentials and
+configuration through `GROK_HOME`.
 
 ## Project Layout
 

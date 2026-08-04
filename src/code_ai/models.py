@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict, field
 from typing import List, Optional, Union
 
-VALID_TYPES = ("claude", "gemini", "codex")
+VALID_TYPES = ("claude", "grok", "codex")
 
 # default_args is stored in either form the user wrote it: a YAML list, or a
 # single command-line string parsed at use-site via shlex.split.
@@ -12,22 +12,22 @@ DefaultArgs = Optional[Union[List[str], str]]
 class BaseProfile:
     """Common fields for all profiles"""
     name: str
-    type: str                            # "claude" | "gemini" | "codex"
+    type: str                            # "claude" | "grok" | "codex"
     proxy: Optional[str] = None          # e.g., "http://127.0.0.1:7890"
     default_args: DefaultArgs = None     # appended after CLI extra_args at launch
 
 
 @dataclass
 class ApiProfile(BaseProfile):
-    """API mode: authenticate via base_url + token/api_key"""
+    """API mode: authenticate with a token/key and an optional endpoint."""
     base_url: str = ""
     token: Optional[str] = None      # Claude only
-    api_key: Optional[str] = None    # Gemini/Codex only
+    api_key: Optional[str] = None    # Grok/Codex only
 
 
 @dataclass
 class LoginProfile(BaseProfile):
-    """Login mode: authenticate via OAuth credentials directory (Claude/Codex)"""
+    """Login mode: authenticate via an isolated credentials directory."""
     credentials_path: str = ""       # Path to existing OAuth credentials
 
 
@@ -39,7 +39,7 @@ def profile_from_dict(data: dict) -> BaseProfile:
     proxy = data.get("proxy")
     default_args = data.get("default_args")
 
-    if (ptype == "claude" or ptype == "codex") and mode == "login":
+    if ptype in VALID_TYPES and mode == "login":
         return LoginProfile(
             name=name,
             type=ptype,

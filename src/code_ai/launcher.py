@@ -12,9 +12,12 @@ ENV_MAP = {
         "env": {"ANTHROPIC_BASE_URL": "base_url", "ANTHROPIC_AUTH_TOKEN": "token"},
         "cmd": "claude",
     },
-    "gemini": {
-        "env": {"GOOGLE_GEMINI_BASE_URL": "base_url", "GEMINI_API_KEY": "api_key"},
-        "cmd": "gemini",
+    "grok": {
+        "env": {
+            "GROK_CLI_CHAT_PROXY_BASE_URL": "base_url",
+            "XAI_API_KEY": "api_key",
+        },
+        "cmd": "grok",
     },
     "codex": {
         "env": {"OPENAI_BASE_URL": "base_url", "OPENAI_API_KEY": "api_key"},
@@ -24,6 +27,7 @@ ENV_MAP = {
 
 CONFIG_DIR_ENV_VARS = {
     "claude": "CLAUDE_CONFIG_DIR",
+    "grok": "GROK_HOME",
     "codex": "CODEX_HOME",
 }
 
@@ -63,7 +67,7 @@ def prepare_environment(profile):
         # Expand ~ to home directory
         credentials_path = os.path.expanduser(profile.credentials_path)
         # Set the appropriate config dir env var based on profile type
-        # Claude uses CLAUDE_CONFIG_DIR, Codex uses CODEX_HOME
+        # Each supported CLI exposes an environment variable for its home dir.
         config_dir_var = CONFIG_DIR_ENV_VARS.get(ptype)
         if config_dir_var:
             if not credentials_path:

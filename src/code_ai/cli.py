@@ -128,7 +128,7 @@ def roll_claude_buddy_command(
 
 @app.command(name="upgrade")
 def upgrade_command():
-    """Upgrade claude, codex, and gemini CLI via npm"""
+    """Upgrade claude, codex, and grok CLI via npm"""
     upgrade()
 
 
@@ -277,7 +277,7 @@ def main(
     Examples:
       code-ai list                      List all profiles
       code-ai show fox-claude           Show profile details
-      code-ai run fox-gemini            Launch Gemini CLI with fox profile
+      code-ai run fox-grok              Launch Grok CLI with fox profile
       code-ai run 4399                  Launch Claude CLI with 4399 profile
       code-ai run fox-claude -p "hi"    Pass extra args to Claude CLI
     """
@@ -287,12 +287,12 @@ def main(
 UPGRADE_PACKAGES = [
     "@anthropic-ai/claude-code",
     "@openai/codex",
-    "@google/gemini-cli",
+    "@xai-official/grok",
 ]
 
 
 def upgrade():
-    typer.echo("Upgrading claude, codex, gemini CLI...")
+    typer.echo("Upgrading claude, codex, grok CLI...")
 
     # On Windows, npm is a .cmd file, need to use shell=True or npm.cmd
     if sys.platform == "win32":

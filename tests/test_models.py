@@ -33,9 +33,9 @@ def test_profile_with_proxy():
     """Test profile with proxy"""
     profile = ApiProfile(
         name="test-proxy",
-        type="gemini",
-        base_url="https://generativelanguage.googleapis.com",
-        api_key="AIza-test",
+        type="grok",
+        base_url="https://api.x.ai/v1",
+        api_key="xai-test",
         proxy="http://127.0.0.1:7890"
     )
     assert profile.proxy == "http://127.0.0.1:7890"
@@ -68,6 +68,19 @@ def test_profile_from_dict_login_mode():
     assert isinstance(profile, LoginProfile)
     assert profile.credentials_path == "~/.claude-profiles/account-a"
     assert profile.proxy == "http://127.0.0.1:7890"
+
+
+def test_profile_from_dict_grok_login_mode():
+    """Grok login profiles isolate browser credentials with GROK_HOME."""
+    data = {
+        "name": "my-grok-login",
+        "type": "grok",
+        "mode": "login",
+        "credentials_path": "~/.grok-profiles/account-a",
+    }
+    profile = profile_from_dict(data)
+    assert isinstance(profile, LoginProfile)
+    assert profile.credentials_path == "~/.grok-profiles/account-a"
 
 def test_profile_from_dict_defaults_to_api():
     """Test that missing mode defaults to api"""
@@ -112,7 +125,7 @@ def test_profile_to_dict_login():
 
 def test_valid_types():
     """Test VALID_TYPES constant"""
-    assert VALID_TYPES == ("claude", "gemini", "codex")
+    assert VALID_TYPES == ("claude", "grok", "codex")
 
 
 def test_profile_from_dict_default_args_list():
@@ -146,9 +159,8 @@ def test_profile_from_dict_default_args_missing_is_none():
     """Profiles without default_args default to None (backward-compat)."""
     data = {
         "name": "p",
-        "type": "gemini",
-        "base_url": "https://generativelanguage.googleapis.com",
-        "api_key": "AIza-x",
+        "type": "grok",
+        "api_key": "xai-x",
     }
     profile = profile_from_dict(data)
     assert profile.default_args is None

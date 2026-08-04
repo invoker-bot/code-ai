@@ -55,8 +55,8 @@ def add_profile(config):
         "type": ptype,
     }
 
-    # Handle mode for Claude and Codex
-    if ptype in ("claude", "codex"):
+    # All supported CLIs can use either API credentials or isolated login state.
+    if ptype in VALID_TYPES:
         mode = input("Mode (api/login) [api]: ").strip().lower() or "api"
         if mode not in ("api", "login"):
             print("Error: mode must be 'api' or 'login'.")
@@ -69,26 +69,28 @@ def add_profile(config):
                 credentials_path = f"~/.{ptype}-profiles/{name}"
             profile_data["credentials_path"] = credentials_path
         else:  # api mode
-            base_url = input("Base URL: ").strip()
-            if not base_url:
+            prompt = (
+                "Base URL (optional, leave blank for xAI default): "
+                if ptype == "grok"
+                else "Base URL: "
+            )
+            base_url = input(prompt).strip()
+            if not base_url and ptype != "grok":
                 print("Error: base URL cannot be empty.")
                 sys.exit(1)
             if ptype == "claude":
                 token = input("Auth token: ").strip()
                 profile_data["base_url"] = base_url
                 profile_data["token"] = token
-            else:  # codex
+            elif ptype == "codex":
                 api_key = input("API key: ").strip()
                 profile_data["base_url"] = base_url
                 profile_data["api_key"] = api_key
-    else:  # gemini - API mode only
-        base_url = input("Base URL: ").strip()
-        if not base_url:
-            print("Error: base URL cannot be empty.")
-            sys.exit(1)
-        api_key = input("API key: ").strip()
-        profile_data["base_url"] = base_url
-        profile_data["api_key"] = api_key
+            else:  # grok
+                api_key = input("API key: ").strip()
+                if base_url:
+                    profile_data["base_url"] = base_url
+                profile_data["api_key"] = api_key
 
     # Optional proxy for all types
     proxy = input("Proxy (optional, e.g., http://127.0.0.1:7890): ").strip()
@@ -119,8 +121,8 @@ def show_profile(config, name):
     print(f"Profile: {name}")
     print(f"Type: {profile.type}")
 
-    # Display mode for Claude and Codex types
-    if profile.type in ("claude", "codex"):
+    # Display authentication mode and its relevant fields.
+    if profile.type in VALID_TYPES:
         mode = profile_dict.get("mode", "api")
         print(f"Mode: {mode}")
 
@@ -133,15 +135,10 @@ def show_profile(config, name):
                 token = profile_dict.get("token", "N/A")
                 print(f"Base URL: {base_url}")
                 print(f"Token: {token}")
-            else:  # codex
+            else:  # codex or grok
                 api_key = profile_dict.get("api_key", "N/A")
                 print(f"Base URL: {base_url}")
                 print(f"API Key: {api_key}")
-    else:  # gemini
-        base_url = profile_dict.get("base_url", "N/A")
-        api_key = profile_dict.get("api_key", "N/A")
-        print(f"Base URL: {base_url}")
-        print(f"API Key: {api_key}")
 
     # Display proxy if set
     if profile.proxy:

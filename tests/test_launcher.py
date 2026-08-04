@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from src.code_ai.models import ApiProfile, LoginProfile
 from src.code_ai.launcher import (
+    ENV_MAP,
     prepare_environment,
     resolve_default_args,
     merge_launch_args,
@@ -31,6 +32,9 @@ def test_prepare_env_api_mode_clears_stale_managed_vars():
         "ANTHROPIC_AUTH_TOKEN": "old-token",
         "CLAUDE_CONFIG_DIR": "/tmp/old-claude",
         "OPENAI_API_KEY": "old-openai-key",
+        "XAI_API_KEY": "old-xai-key",
+        "GROK_CLI_CHAT_PROXY_BASE_URL": "https://old-grok.url",
+        "GROK_HOME": "/tmp/old-grok",
         "HTTP_PROXY": "http://127.0.0.1:9999",
         "HTTPS_PROXY": "http://127.0.0.1:9999",
     }):
@@ -47,6 +51,9 @@ def test_prepare_env_api_mode_clears_stale_managed_vars():
         assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test"
         assert "CLAUDE_CONFIG_DIR" not in env
         assert "OPENAI_API_KEY" not in env
+        assert "XAI_API_KEY" not in env
+        assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
+        assert "GROK_HOME" not in env
         assert "HTTP_PROXY" not in env
         assert "HTTPS_PROXY" not in env
 
@@ -73,9 +80,9 @@ def test_prepare_env_with_proxy():
     """Test environment preparation with proxy"""
     profile = ApiProfile(
         name="test-proxy",
-        type="gemini",
-        base_url="https://generativelanguage.googleapis.com",
-        api_key="AIza-test",
+        type="grok",
+        base_url="https://api.x.ai/v1",
+        api_key="xai-test",
         proxy="http://127.0.0.1:7890"
     )
 
@@ -83,6 +90,57 @@ def test_prepare_env_with_proxy():
 
     assert env["HTTP_PROXY"] == "http://127.0.0.1:7890"
     assert env["HTTPS_PROXY"] == "http://127.0.0.1:7890"
+
+
+def test_gemini_is_not_a_supported_launcher():
+    assert "gemini" not in ENV_MAP
+    assert ENV_MAP["grok"]["cmd"] == "grok"
+
+    with pytest.raises(ValueError, match="Unknown profile type 'gemini'"):
+        prepare_environment(
+            ApiProfile(name="legacy-gemini", type="gemini", api_key="old-key")
+        )
+
+
+def test_prepare_env_grok_api_mode():
+    profile = ApiProfile(
+        name="test-grok-api",
+        type="grok",
+        base_url="https://grok-proxy.example/v1",
+        api_key="xai-test",
+    )
+
+    env = prepare_environment(profile)
+
+    assert env["XAI_API_KEY"] == "xai-test"
+    assert env["GROK_CLI_CHAT_PROXY_BASE_URL"] == "https://grok-proxy.example/v1"
+
+
+def test_prepare_env_grok_api_mode_allows_default_endpoint():
+    profile = ApiProfile(
+        name="test-grok-api",
+        type="grok",
+        api_key="xai-test",
+    )
+
+    env = prepare_environment(profile)
+
+    assert env["XAI_API_KEY"] == "xai-test"
+    assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
+
+
+def test_prepare_env_grok_login_mode():
+    profile = LoginProfile(
+        name="test-grok-login",
+        type="grok",
+        credentials_path="~/.grok-profiles/account-a",
+    )
+
+    env = prepare_environment(profile)
+
+    assert "XAI_API_KEY" not in env
+    assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
+    assert env["GROK_HOME"] == os.path.expanduser("~/.grok-profiles/account-a")
 
 
 def test_prepare_env_login_clears_api_vars():

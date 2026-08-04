@@ -175,33 +175,6 @@ class TestBackwardCompatibility:
                     list_profiles(config)
                     assert mock_print.called
 
-                gemini_config = {
-                    "profiles": {
-                        "legacy-gemini": {
-                            "type": "gemini",
-                            "base_url": "https://generativelanguage.googleapis.com",
-                            "api_key": "AIza-test-key",
-                        }
-                    }
-                }
-                save_config(gemini_config)
-
-                config = load_config()
-                profile_dict = config["profiles"]["legacy-gemini"]
-                assert profile_dict["name"] == "legacy-gemini"
-                assert profile_dict["mode"] == "api"
-
-                profile = profile_from_dict(profile_dict)
-                assert isinstance(profile, ApiProfile)
-                assert profile.name == "legacy-gemini"
-                assert profile.type == "gemini"
-                assert profile.api_key == "AIza-test-key"
-
-                env = prepare_environment(profile)
-                assert env["GOOGLE_GEMINI_BASE_URL"] == "https://generativelanguage.googleapis.com"
-                assert env["GEMINI_API_KEY"] == "AIza-test-key"
-
-
 class TestCodexProfiles:
     """Test codex profile workflows"""
 
@@ -305,3 +278,62 @@ class TestCodexProfiles:
                 env = prepare_environment(profile)
                 assert "OPENAI_API_KEY" not in env
                 assert env["CODEX_HOME"] == os.path.expanduser("~/.codex-profiles/account-a")
+
+
+class TestGrokProfiles:
+    """Test official Grok CLI profile workflows."""
+
+    def test_grok_api_profile(self):
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                save_config({"profiles": {}})
+                inputs = [
+                    "my-grok-api",
+                    "grok",
+                    "api",
+                    "",  # use the official xAI endpoint
+                    "xai-test-key",
+                    "",  # proxy
+                    "",  # default_args
+                ]
+
+                with patch("builtins.input", side_effect=inputs):
+                    config = add_profile(load_config())
+                    save_config(config)
+
+                profile_dict = load_config()["profiles"]["my-grok-api"]
+                assert profile_dict["type"] == "grok"
+                assert profile_dict["mode"] == "api"
+                assert "base_url" not in profile_dict
+                assert profile_dict["api_key"] == "xai-test-key"
+
+                env = prepare_environment(profile_from_dict(profile_dict))
+                assert env["XAI_API_KEY"] == "xai-test-key"
+                assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
+
+    def test_grok_login_profile(self):
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                save_config({"profiles": {}})
+                inputs = [
+                    "my-grok-login",
+                    "grok",
+                    "login",
+                    "~/.grok-profiles/account-a",
+                    "",  # proxy
+                    "",  # default_args
+                ]
+
+                with patch("builtins.input", side_effect=inputs):
+                    config = add_profile(load_config())
+                    save_config(config)
+
+                profile_dict = load_config()["profiles"]["my-grok-login"]
+                assert profile_dict["type"] == "grok"
+                assert profile_dict["mode"] == "login"
+
+                env = prepare_environment(profile_from_dict(profile_dict))
+                assert env["GROK_HOME"] == os.path.expanduser(
+                    "~/.grok-profiles/account-a"
+                )
+                assert "XAI_API_KEY" not in env
