@@ -177,9 +177,17 @@ def launch(profile_dict, extra_args, use_default_args=True):
     full_cmd = [cmd_path] + final_args
 
     if sys.platform == "win32":
-        # On Windows, use subprocess with full environment
+        # On Windows, ensure UTF-8 console encoding (fixes mojibake/encoding issues
+        # in PowerShell when launching AI editors like claude, codex, grok).
+        # PowerShell defaults to UTF-16LE; we wrap the launch in PowerShell
+        # to set OutputEncoding to UTF8 so the child process inherits a UTF-8 console.
+        ps_script = (
+            '$OutputEncoding = [console]::OutputEncoding = [Text.Encoding]::UTF8; '
+            f'& {shlex.join(full_cmd)}'
+        )
+        ps_cmd = f'powershell.exe -NoProfile -Command "{ps_script}"'
         try:
-            result = subprocess.run(full_cmd, env=env, shell=False)
+            result = subprocess.run(ps_cmd, env=env, shell=True)
             sys.exit(result.returncode)
         except KeyboardInterrupt:
             sys.exit(130)

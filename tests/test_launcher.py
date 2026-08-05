@@ -276,52 +276,52 @@ def test_merge_launch_args_use_default_false_skips():
 def test_launch_on_windows_uses_powershell_wrapper():
     """Verify the encoding wrapper is used on Windows (TDD test for the fix)."""
     with patch("src.code_ai.launcher.sys.platform", "win32"):
-        with patch("src.code_ai.launcher.subprocess.run") as mock_run:
-            with patch("src.code_ai.launcher.shlex.join") as mock_shlex:
-                mock_shlex.return_value = (
-                    'powershell.exe -NoProfile -Command "$OutputEncoding = [console]::OutputEncoding = [Text.Encoding]::UTF8; '
-                    '& claude.cmd --model opus"'
-                )
+        with patch("src.code_ai.launcher.shutil.which", return_value="claude.cmd"):
+            with patch("src.code_ai.launcher.subprocess.run") as mock_run:
                 from src.code_ai.launcher import launch
-                with patch("sys.exit") as mock_exit:
+                with patch("sys.exit"):
                     launch(
                         {"type": "claude", "name": "fox-claude", "base_url": None, "token": None},
                         ["--model", "opus"],
                         use_default_args=True,
                     )
-                mock_shlex.assert_called_once()
-                args, _ = mock_run.call_args
+                args, kwargs = mock_run.call_args
                 cmd = args[0]
-                assert "powershell.exe" in cmd
-                assert "$OutputEncoding = [console]::OutputEncoding = [Text.Encoding]::UTF8" in cmd
-                assert "claude.cmd" in cmd
+                assert cmd == (
+                    'powershell.exe -NoProfile -Command '
+                    '"$OutputEncoding = [console]::OutputEncoding = [Text.Encoding]::UTF8; '
+                    '& claude.cmd --model opus"'
+                )
+                assert kwargs["shell"] is True
 
 
 def test_launch_on_non_windows_uses_execvp():
     """Unix path (execvp) is unchanged — no wrapper."""
     with patch("src.code_ai.launcher.sys.platform", "linux"):
-        with patch("src.code_ai.launcher.os.execvp") as mock_exec:
-            from src.code_ai.launcher import launch
-            with patch("sys.exit") as mock_exit:
-                launch(
-                    {"type": "claude", "name": "fox-claude", "base_url": None, "token": None},
-                    [],
-                    use_default_args=True,
-                )
-            mock_exec.assert_called_once()
+        with patch("src.code_ai.launcher.shutil.which", return_value="claude"):
+            with patch("src.code_ai.launcher.os.execvp") as mock_exec:
+                from src.code_ai.launcher import launch
+                with patch("sys.exit"):
+                    launch(
+                        {"type": "claude", "name": "fox-claude", "base_url": None, "token": None},
+                        [],
+                        use_default_args=True,
+                    )
+                mock_exec.assert_called_once()
 
 
 def test_launch_windows_passes_env_correctly():
     """Env vars set by prepare_environment reach the PowerShell wrapper."""
     with patch("src.code_ai.launcher.sys.platform", "win32"):
-        with patch("src.code_ai.launcher.subprocess.run") as mock_run:
-            from src.code_ai.launcher import launch
-            with patch("sys.exit") as mock_exit:
-                launch(
-                    {"type": "claude", "name": "fox-claude", "base_url": "https://example.com", "token": "sk-xxx"},
-                    [],
-                    use_default_args=True,
-                )
-            env = mock_run.call_args[1]["env"]
-            assert env["ANTHROPIC_BASE_URL"] == "https://example.com"
-            assert "ANTHROPIC_AUTH_TOKEN" in env
+        with patch("src.code_ai.launcher.shutil.which", return_value="claude.cmd"):
+            with patch("src.code_ai.launcher.subprocess.run") as mock_run:
+                from src.code_ai.launcher import launch
+                with patch("sys.exit"):
+                    launch(
+                        {"type": "claude", "name": "fox-claude", "base_url": "https://example.com", "token": "sk-xxx"},
+                        [],
+                        use_default_args=True,
+                    )
+                env = mock_run.call_args[1]["env"]
+                assert env["ANTHROPIC_BASE_URL"] == "https://example.com"
+                assert "ANTHROPIC_AUTH_TOKEN" in env

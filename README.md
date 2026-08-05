@@ -1,163 +1,183 @@
 # ai-code-switcher
 
-Switch AI coding tool profiles and launch the correct CLI.
+Switch between profiles for AI coding tools and launch the right CLI with the
+right environment.
+
+`ai-code-switcher` gives each profile its own provider, endpoint, credentials,
+proxy, and default arguments. The `code-ai` command then starts Claude Code,
+OpenAI Codex, or Grok using that profile.
 
 ## Features
 
-- Manage multiple AI coding tool profiles for Claude, Codex, and Grok
-- Switch between API-mode and login-mode profiles
-- Launch the matching CLI through one command entrypoint
-- Per-profile default launch arguments (e.g., always pass `--model ...`)
-- Upgrade supported AI CLIs through npm
+- Manage multiple profiles from one command-line interface
+- Support API-key and isolated login/credential profiles
+- Configure a custom endpoint and proxy for each profile
+- Forward arguments to the underlying AI CLI
+- Set per-profile default arguments such as `--model`
+- Upgrade the supported AI CLIs through npm
+- Optional Windows and macOS desktop launcher
 
-## Install
+## Installation
 
-```bash
-pip install -e .
-```
-
-## Usage
-
-List profiles:
+Install the CLI from PyPI:
 
 ```bash
-code-ai list
+python -m pip install ai-code-switcher
 ```
 
-Add a profile:
+For local development, install the checkout in editable mode:
+
+```bash
+python -m pip install -e .
+```
+
+The optional desktop launcher is installed with:
+
+```bash
+python -m pip install "ai-code-switcher[desktop]"
+```
+
+Requirements:
+
+- Python 3.9 or later
+- At least one supported AI CLI installed and available on `PATH`
+- Node.js and npm for `code-ai upgrade`
+- Windows or macOS for the optional desktop launcher
+
+## Quick start
+
+Create a profile interactively, then launch it:
 
 ```bash
 code-ai add
+code-ai list
+code-ai show my-claude
+code-ai run my-claude
 ```
 
-Show one profile:
+Arguments after the profile name are forwarded to the underlying CLI:
 
 ```bash
-code-ai show <profile-name>
+code-ai run my-claude -p "Review this repository"
+code-ai run my-codex --model o3
+code-ai run my-grok --help
 ```
 
-Launch a profile:
+Useful commands:
 
-```bash
-code-ai run fox-grok
-code-ai run 4399
-code-ai run fox-claude -p "hi"
-code-ai run --no-default-args fox-claude --model sonnet  # bypass profile defaults
+```text
+code-ai list                         List configured profiles
+code-ai add                          Add a profile interactively
+code-ai show <profile>               Show profile details
+code-ai remove <profile>             Remove a profile
+code-ai upgrade                      Upgrade Claude, Codex, and Grok CLIs
+code-ai --version                    Show the installed version
+code-ai --help                       Show command help
 ```
 
-### Default launch arguments
+The supported AI CLIs are:
 
-A profile may define `default_args` to be appended to every `code-ai run`
-invocation for that profile. Useful for "this profile always uses model X" or
-for forcing flags like `--dangerously-skip-permissions` on a sandboxed profile.
+- Claude Code: `@anthropic-ai/claude-code`
+- OpenAI Codex: `@openai/codex`
+- Grok: `@xai-official/grok`
 
-`default_args` accepts either a YAML list (recommended) or a single string
-(parsed with POSIX shell rules):
+## Profiles and configuration
+
+Profiles are stored in `~/.code-ai/config.yaml`. Use API mode when the profile
+should provide a token or API key. Use login mode when the CLI should use an
+isolated credentials directory.
+
+Example configuration:
 
 ```yaml
 profiles:
-  fox-claude:
-    name: fox-claude
-    type: claude
-    mode: login
-    credentials_path: ~/.claude-profiles/fox
-    default_args:
-      - --model
-      - claude-opus-4-5
-      - --dangerously-skip-permissions
-
-  4399:
-    name: 4399
+  claude-api:
+    name: claude-api
     type: claude
     mode: api
-    base_url: https://...
-    token: sk-...
-    default_args: "--model claude-opus-4-5"
+    base_url: https://api.anthropic.com
+    token: sk-ant-...
+    default_args:
+      - --model
+      - claude-sonnet-4-5
+
+  codex-login:
+    name: codex-login
+    type: codex
+    mode: login
+    credentials_path: ~/.codex-profiles/work
+    proxy: http://127.0.0.1:7890
+
+  grok-api:
+    name: grok-api
+    type: grok
+    mode: api
+    base_url: https://api.x.ai
+    api_key: xai-...
 ```
 
-Merge order: command-line arguments come first, `default_args` is appended
-last. Most CLIs treat the last occurrence of a flag as authoritative, so
-`default_args` effectively pins the configured value (e.g., the profile's
-`--model claude-opus-4-5` overrides any `--model` the user passes on the
-command line). Pass `--no-default-args` between `run` and the profile name
-to skip `default_args` for a single invocation.
+Login profiles isolate credentials through the provider-specific environment
+variables used by the CLIs. API profiles set the corresponding endpoint and
+authentication variables for the selected provider.
 
-The interactive `code-ai add` flow asks for `default_args` at the end (leave
-blank to skip). The value is stored verbatim as a string; switch to list
-form by editing `~/.code-ai/config.yaml` directly.
+Keep tokens and personal configuration out of source control.
 
-Remove a profile:
+### Default launch arguments
+
+`default_args` can be a YAML list or a single string:
+
+```yaml
+profiles:
+  claude-api:
+    name: claude-api
+    type: claude
+    default_args: "--model claude-sonnet-4-5"
+```
+
+Profile defaults are appended after command-line arguments. This lets a
+profile pin a value such as `--model` when the CLI uses the last occurrence of
+a flag. Skip profile defaults for one launch with:
 
 ```bash
-code-ai remove <profile-name>
+code-ai run --no-default-args claude-api --model claude-opus-4-5
 ```
 
-Upgrade supported CLIs:
+## Claude Buddy
+
+Claude profiles can have a deterministic companion card generated from the
+profile name:
 
 ```bash
-code-ai upgrade
+code-ai roll-claude-buddy claude-api
+code-ai roll-claude-buddy claude-api --name capybara
+code-ai roll-claude-buddy claude-api --type legendary
 ```
 
-This upgrades:
+## Desktop launcher
 
-- `@anthropic-ai/claude-code`
-- `@openai/codex`
-- `@xai-official/grok`
-
-Version:
+The optional desktop launcher provides a graphical interface for detected
+Claude, ChatGPT, and Codex desktop apps. It is supported on Windows and macOS.
 
 ```bash
-code-ai --version
+python -m pip install "ai-code-switcher[desktop]"
+code-ai desktop install       # create or recreate the shortcut
+code-ai desktop run           # open the launcher
+code-ai desktop uninstall     # remove the shortcut
 ```
 
-Help:
+Desktop settings are stored separately in `~/.code-ai/desktop.yaml`. The
+launcher can check the system proxy and apply common or per-application
+environment variables; per-application values take precedence.
+
+## Development
+
+Run the test suite and build the distribution locally with:
 
 ```bash
-code-ai --help
+python -m pytest tests/ -q
+python -m build
 ```
-
-## Configuration
-
-Profiles are stored under `~/.code-ai/config.yaml`.
-
-Grok profiles support both modes. API mode sets `XAI_API_KEY` and optionally
-`GROK_CLI_CHAT_PROXY_BASE_URL`; login mode isolates browser credentials and
-configuration through `GROK_HOME`.
-
-## Project Layout
-
-```text
-src/code_ai/
-|-- __init__.py
-|-- cli.py
-|-- config.py
-|-- launcher.py
-`-- profiles.py
-```
-
-## Requirements
-
-- Python >= 3.8
-- pyyaml >= 5.0
 
 ## License
 
 MIT
-
-## Desktop launcher (`code-ai desktop`)
-
-A double-clickable GUI (Windows + macOS) that starts and Steam-style stops the
-Claude, ChatGPT, and Codex desktop apps. Each detected app shows separate launch
-and stop actions; launch first stops any running instance so the new environment
-is applied cleanly.
-
-```bash
-pip install ai-code-switcher[desktop]   # one-time: install the GUI deps
-code-ai desktop install                 # create or recreate the shortcut
-code-ai desktop run                     # open the launcher window
-code-ai desktop uninstall               # remove the shortcut (asks about settings)
-```
-
-Settings live in `~/.code-ai/desktop.yaml` (separate from CLI profiles): a
-"check system proxy" toggle, plus **通用** (common) and **专有** (per-app)
-environment variables. Per-app values override common values on a shared key.
