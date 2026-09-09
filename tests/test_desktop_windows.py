@@ -245,7 +245,7 @@ def test_create_shortcut_uses_desktop_python_env(monkeypatch, tmp_path):
     assert f"$s.TargetPath = '{pythonw}'" in script
 
 
-def _make_fake_msix(tmp_path, app_id="ChatGPT", exe_rel="app\\ChatGPT.exe"):
+def _make_fake_msix(tmp_path, app_id="Claude", exe_rel="app\\Claude.exe"):
     """Create a fake MSIX InstallLocation: an AppxManifest.xml + on-disk exe.
 
     Mirrors a real package: <Application Id=... Executable=...> under a default
@@ -271,10 +271,10 @@ def _make_fake_msix(tmp_path, app_id="ChatGPT", exe_rel="app\\ChatGPT.exe"):
 
 
 def test_resolve_exe_reads_manifest(tmp_path):
-    exe = _make_fake_msix(tmp_path, app_id="ChatGPT", exe_rel="app\\ChatGPT.exe")
+    exe = _make_fake_msix(tmp_path, app_id="Claude", exe_rel="app\\Claude.exe")
     be = windows.WindowsBackend()
-    st = AppStatus("chatgpt", found=True, direct=False,
-                   launch_target="OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0!ChatGPT",
+    st = AppStatus("claude", found=True, direct=False,
+                   launch_target="Claude_pzs8sxrjxfjjc!Claude",
                    match_root=str(tmp_path))
     assert be._resolve_exe(st) == exe
 
@@ -338,14 +338,14 @@ def test_launch_brokered_prefers_real_exe_so_env_propagates(monkeypatch, tmp_pat
     # The core bug fix: a brokered (MSIX) app must launch via its real exe as a
     # child process so injected env actually reaches it — NOT via explorer.exe,
     # whose shell activation runs the app under a broker that strips the env.
-    exe = _make_fake_msix(tmp_path, app_id="ChatGPT", exe_rel="app\\ChatGPT.exe")
+    exe = _make_fake_msix(tmp_path, app_id="Claude", exe_rel="app\\Claude.exe")
     calls = {}
     monkeypatch.setattr(windows.subprocess, "Popen",
                         lambda argv, env=None, creationflags=0: calls.update(
                             argv=argv, env=env, creationflags=creationflags))
     be = windows.WindowsBackend()
-    st = AppStatus("chatgpt", found=True, direct=False,
-                   launch_target="OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0!ChatGPT",
+    st = AppStatus("claude", found=True, direct=False,
+                   launch_target="Claude_pzs8sxrjxfjjc!Claude",
                    match_root=str(tmp_path))
     be.launch(st, {"INJECTED": "1"})
     assert calls["argv"] == [exe]

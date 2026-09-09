@@ -27,14 +27,6 @@ APP_REGISTRY: List[AppSpec] = [
         mac_bundle_id="com.anthropic.claudefordesktop",
     ),
     AppSpec(
-        id="chatgpt",
-        display="ChatGPT",
-        win_aumid="OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0!ChatGPT",
-        win_package_family="OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0",
-        mac_bundle_name="ChatGPT.app",
-        mac_bundle_id="com.openai.chat",
-    ),
-    AppSpec(
         id="codex",
         display="Codex",
         win_aumid="OpenAI.Codex_2p2nqsd0c76g0!App",

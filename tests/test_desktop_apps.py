@@ -3,9 +3,9 @@ import pytest
 from src.code_ai.desktop.apps import AppSpec, APP_REGISTRY, get_app
 
 
-def test_registry_has_three_known_apps():
+def test_registry_has_two_known_apps():
     ids = [a.id for a in APP_REGISTRY]
-    assert ids == ["claude", "chatgpt", "codex"]
+    assert ids == ["claude", "codex"]
 
 
 def test_registry_entries_are_appspec_with_identifiers():
@@ -21,3 +21,5 @@ def test_registry_entries_are_appspec_with_identifiers():
 def test_get_app_unknown_raises():
     with pytest.raises(KeyError):
         get_app("nope")
+    with pytest.raises(KeyError):
+        get_app("chatgpt")

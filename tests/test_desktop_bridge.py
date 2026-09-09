@@ -56,12 +56,12 @@ class FakeBackend:
         return []
 
 
-def test_list_apps_reports_three(monkeypatch):
+def test_list_apps_reports_claude_and_codex(monkeypatch):
     with temp_desktop_config() as f:
         with patch("src.code_ai.desktop.config.DESKTOP_CONFIG_FILE", f):
             b = LauncherBridge(FakeBackend(found=True), APP_REGISTRY)
             apps = b.list_apps()
-            assert [a["id"] for a in apps] == ["claude", "chatgpt", "codex"]
+            assert [a["id"] for a in apps] == ["claude", "codex"]
             assert all(a["found"] for a in apps)
             assert all(a["running"] is False for a in apps)
 

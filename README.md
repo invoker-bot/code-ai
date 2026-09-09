@@ -156,7 +156,7 @@ code-ai roll-claude-buddy claude-api --type legendary
 ## Desktop launcher
 
 The optional desktop launcher provides a graphical interface for detected
-Claude, ChatGPT, and Codex desktop apps. It is supported on Windows and macOS.
+Claude and Codex desktop apps. It is supported on Windows and macOS.
 
 ```bash
 python -m pip install "ai-code-switcher[desktop]"
