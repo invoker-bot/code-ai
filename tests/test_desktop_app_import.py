@@ -135,6 +135,7 @@ def test_run_gui_exposes_only_js_api_methods_to_pywebview(monkeypatch, tmp_path)
     # icon is set safely via start(icon=) (asserted above), so no handler is needed.
     assert len(fake_window.events.shown.items) == 0
     assert _pywebview_exposed_functions(captured["js_api"]) == {
+        "fit_window",
         "get_app_settings",
         "get_settings",
         "launch_app",

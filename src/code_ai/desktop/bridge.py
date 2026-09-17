@@ -13,17 +13,23 @@ class LauncherBridge:
     native window objects as JS API members.
     """
 
+    # Keep the window clear of the taskbar/dock when it grows to fit content.
+    _SCREEN_MARGIN = 60
+    _MIN_HEIGHT = 200
+
     def __init__(self, backend, apps=APP_REGISTRY):
         self._backend = backend
         self._apps = apps
         self._window = None
         self._open_dialog = 20  # pywebview OPEN_DIALOG; overridden in app.py
+        self._screen_height = None
         self._status = {}
         self._refresh_detection()
 
-    def _attach_window(self, window, open_dialog):
+    def _attach_window(self, window, open_dialog, screen_height=None):
         self._window = window
         self._open_dialog = open_dialog
+        self._screen_height = screen_height
 
     # ---- detection cache ----
     def _refresh_detection(self):
@@ -109,6 +115,44 @@ class LauncherBridge:
         cfg.set_app_env(data, app_id, dict(payload.get("env_vars", {})))
         cfg.save_desktop_config(data)
         return {"ok": True}
+
+    # ---- window ----
+    def fit_window(self, payload):
+        """Resize the window so the page content fits without scrolling.
+
+        The page reports its current viewport height (`inner`) and the height
+        its content wants (`wanted`), both in CSS px; the same delta is applied
+        to the outer window so the title bar / borders stay out of the maths.
+        Growth is clamped to the screen and the window is nudged up when it
+        would otherwise run under the taskbar.
+        """
+        if self._window is None:
+            return {"ok": False}
+        try:
+            inner = int(payload.get("inner", 0))
+            wanted = int(payload.get("wanted", 0))
+        except (AttributeError, TypeError, ValueError):
+            return {"ok": False}
+        if inner <= 0 or wanted <= 0:
+            return {"ok": False}
+        try:
+            width, height = self._window.width, self._window.height
+            new_height = height + (wanted - inner)
+            limit = None
+            if self._screen_height:
+                limit = int(self._screen_height) - self._SCREEN_MARGIN
+                new_height = min(new_height, limit)
+            new_height = max(self._MIN_HEIGHT, new_height)
+            if abs(new_height - height) <= 1:
+                return {"ok": True, "height": height}
+            if limit is not None:
+                x, y = self._window.x, self._window.y
+                if y + new_height > limit:
+                    self._window.move(x, max(0, limit - new_height))
+            self._window.resize(width, new_height)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "height": new_height}
 
     def pick_app_path(self, app_id):
         if self._window is None:

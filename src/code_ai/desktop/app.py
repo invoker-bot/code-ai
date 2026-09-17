@@ -37,8 +37,14 @@ def run_gui():
     import webview  # lazy: only needed to actually show the GUI
 
     bridge = LauncherBridge(backend, APP_REGISTRY)
+    # The page fits the window to its content once loaded (bridge.fit_window);
+    # this is just a close first guess so the window does not visibly jump.
     window = webview.create_window(
-        "AI Launcher", url=_ui_url(), js_api=bridge, width=760, height=560,
+        "AI Launcher", url=_ui_url(), js_api=bridge, width=600, height=276,
     )
-    bridge._attach_window(window, webview.OPEN_DIALOG)
+    try:
+        screen_height = int(webview.screens[0].height)
+    except Exception:  # headless / unknown screen: fit_window skips clamping
+        screen_height = None
+    bridge._attach_window(window, webview.OPEN_DIALOG, screen_height=screen_height)
     webview.start(icon=_window_icon_path())

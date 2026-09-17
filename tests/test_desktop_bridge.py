@@ -136,3 +136,68 @@ def test_settings_round_trip():
             b.save_app_settings("codex", {"env_vars": {"X": "Y"}})
             a = b.get_app_settings("codex")
             assert a["env_vars"] == {"X": "Y"}
+
+
+class FakeWindow:
+    """Records pywebview Window calls; sizes/positions are logical px."""
+
+    def __init__(self, width=680, height=356, x=100, y=100):
+        self.width, self.height, self.x, self.y = width, height, x, y
+        self.resized = []
+        self.moved = []
+
+    def resize(self, width, height):
+        self.resized.append((width, height))
+        self.width, self.height = width, height
+
+    def move(self, x, y):
+        self.moved.append((x, y))
+        self.x, self.y = x, y
+
+
+def _bridge_with_window(window, screen_height=None):
+    bridge = LauncherBridge(FakeBackend())
+    bridge._attach_window(window, 20, screen_height=screen_height)
+    return bridge
+
+
+def test_fit_window_applies_content_delta_to_outer_height():
+    win = FakeWindow(width=680, height=356)
+    bridge = _bridge_with_window(win)
+
+    r = bridge.fit_window({"inner": 318, "wanted": 620})
+
+    # +302 CSS px of content -> +302 on the outer window; width untouched.
+    assert r == {"ok": True, "height": 658}
+    assert win.resized == [(680, 658)]
+    assert win.moved == []
+
+
+def test_fit_window_ignores_one_pixel_dpi_rounding_jitter():
+    win = FakeWindow(height=356)
+    bridge = _bridge_with_window(win)
+
+    assert bridge.fit_window({"inner": 318, "wanted": 319}) == {"ok": True, "height": 356}
+    assert win.resized == []
+
+
+def test_fit_window_clamps_to_screen_and_nudges_window_up():
+    win = FakeWindow(height=356, y=700)
+    bridge = _bridge_with_window(win, screen_height=1080)
+
+    r = bridge.fit_window({"inner": 318, "wanted": 2000})
+
+    limit = 1080 - LauncherBridge._SCREEN_MARGIN
+    assert r == {"ok": True, "height": limit}
+    assert win.moved == [(100, 0)]
+    assert win.resized == [(680, limit)]
+
+
+def test_fit_window_rejects_bad_payloads_and_missing_window():
+    bridge = LauncherBridge(FakeBackend())
+    assert bridge.fit_window({"inner": 318, "wanted": 620}) == {"ok": False}
+
+    bridge = _bridge_with_window(FakeWindow())
+    assert bridge.fit_window(None) == {"ok": False}
+    assert bridge.fit_window({"inner": "x", "wanted": 1}) == {"ok": False}
+    assert bridge.fit_window({"inner": 0, "wanted": 1}) == {"ok": False}
