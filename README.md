@@ -81,6 +81,11 @@ The supported AI CLIs are:
 - OpenAI Codex: `@openai/codex`
 - Grok: `@xai-official/grok`
 
+`code-ai upgrade` also refreshes the Grok binary in each login profile's
+credentials directory. Grok stores a separate binary under `GROK_HOME/bin`, so
+updating only the global npm package can leave a login profile running an old
+version. Restart running Grok sessions after upgrading.
+
 ## Profiles and configuration
 
 Profiles are stored in `~/.code-ai/config.yaml`. Use API mode when the profile

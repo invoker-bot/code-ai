@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 from typing import Optional, List
@@ -291,19 +292,41 @@ UPGRADE_PACKAGES = [
 ]
 
 
+def _run_npm(args, env):
+    # On Windows, npm is a .cmd file, need to use shell=True or npm.cmd
+    if sys.platform == "win32":
+        return subprocess.run("npm " + " ".join(args), shell=True, env=env)
+    return subprocess.run(["npm"] + args, env=env)
+
+
 def upgrade():
     typer.echo("Upgrading claude, codex, grok CLI...")
 
-    # On Windows, npm is a .cmd file, need to use shell=True or npm.cmd
-    if sys.platform == "win32":
-        # Use shell=True on Windows for better compatibility
-        cmd = "npm install -g " + " ".join(UPGRADE_PACKAGES)
-        result = subprocess.run(cmd, shell=True)
-    else:
-        result = subprocess.run(
-            ["npm", "install", "-g"] + UPGRADE_PACKAGES,
-        )
-    sys.exit(result.returncode)
+    env = os.environ.copy()
+    env.pop("GROK_HOME", None)
+    result = _run_npm(["install", "-g"] + UPGRADE_PACKAGES, env)
+    if result.returncode:
+        sys.exit(result.returncode)
+
+    # Grok's npm launcher prefers GROK_HOME/bin even when that binary is old.
+    # Re-run its installer in each login home after updating the global package.
+    refreshed = {os.path.normcase(os.path.realpath(os.path.expanduser("~/.grok")))}
+    for name, profile in load_config().get("profiles", {}).items():
+        if (profile.get("type") != "grok" or profile.get("mode") != "login"
+                or not profile.get("credentials_path")):
+            continue
+        home = os.path.expanduser(profile["credentials_path"])
+        normalized_home = os.path.normcase(os.path.realpath(home))
+        if normalized_home in refreshed:
+            continue
+        typer.echo(f"Refreshing Grok CLI for login profile '{name}'...")
+        profile_env = dict(env, GROK_HOME=home)
+        result = _run_npm(["rebuild", "-g", "@xai-official/grok"], profile_env)
+        if result.returncode:
+            typer.echo(f"Failed to refresh Grok CLI for profile '{name}'.", err=True)
+            sys.exit(result.returncode)
+        refreshed.add(normalized_home)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
