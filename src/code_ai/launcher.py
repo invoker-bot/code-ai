@@ -6,6 +6,7 @@ import subprocess
 from typing import List
 
 from .models import profile_from_dict, ApiProfile, LoginProfile
+from .grok import find_npm_installation
 
 ENV_MAP = {
     "claude": {
@@ -166,6 +167,11 @@ def launch(profile_dict, extra_args, use_default_args=True):
     else:
         cmd_path = shutil.which(cmd)
 
+    if ptype == "grok":
+        installation = find_npm_installation()
+        if installation:
+            cmd_path = installation.command
+
     if not cmd_path:
         print(f"Error: '{cmd}' not found in PATH. Install it first.")
         sys.exit(1)
@@ -194,4 +200,4 @@ def launch(profile_dict, extra_args, use_default_args=True):
     else:
         # On Unix, update os.environ and use execvp
         os.environ.update(env)
-        os.execvp(cmd, [cmd] + final_args)
+        os.execvp(cmd_path, full_cmd)

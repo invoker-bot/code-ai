@@ -84,7 +84,15 @@ The supported AI CLIs are:
 `code-ai upgrade` also refreshes the Grok binary in each login profile's
 credentials directory. Grok stores a separate binary under `GROK_HOME/bin`, so
 updating only the global npm package can leave a login profile running an old
-version. Restart running Grok sessions after upgrading.
+version. The upgrade enables npm install scripts and verifies the actual binary
+version in the default home and every login home; an unchanged or missing binary
+causes the command to fail. Restart running Grok sessions after upgrading.
+
+For Grok, `code-ai run` prefers the official package in the active npm global
+prefix, so an older native installation earlier on `PATH` cannot shadow the
+package updated by `code-ai upgrade`. Native installations remain supported
+when the npm package is absent. Login credentials still use the profile's own
+`GROK_HOME`.
 
 ## Profiles and configuration
 

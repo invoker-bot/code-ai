@@ -8,6 +8,7 @@ import typer
 from .config import load_config, save_config
 from .profiles import list_profiles, add_profile, remove_profile, show_profile
 from .launcher import launch
+from .grok import find_npm_installation, home_binary, check_version as check_grok_version
 from .buddy import (
     RARITIES, SPECIES, RARITY_COLORS,
     roll_by_name, bruteforce_user_id,
@@ -299,18 +300,35 @@ def _run_npm(args, env):
     return subprocess.run(["npm"] + args, env=env)
 
 
+def _verify_grok(command, env, version):
+    try:
+        check_grok_version(command, env, version)
+    except RuntimeError as exc:
+        typer.echo(str(exc), err=True)
+        sys.exit(1)
+
+
 def upgrade():
     typer.echo("Upgrading claude, codex, grok CLI...")
 
     env = os.environ.copy()
     env.pop("GROK_HOME", None)
-    result = _run_npm(["install", "-g"] + UPGRADE_PACKAGES, env)
+    result = _run_npm(["install", "-g", "--ignore-scripts=false"] + UPGRADE_PACKAGES, env)
     if result.returncode:
         sys.exit(result.returncode)
 
+    installation = find_npm_installation()
+    if not installation:
+        typer.echo("Cannot find the updated @xai-official/grok installation in the active npm prefix.", err=True)
+        sys.exit(1)
+    _verify_grok(installation.command, env, installation.version)
+    default_home = os.path.expanduser("~/.grok")
+    _verify_grok(home_binary(default_home), env, installation.version)
+    typer.echo(f"Grok CLI {installation.version} verified at {installation.command}")
+
     # Grok's npm launcher prefers GROK_HOME/bin even when that binary is old.
     # Re-run its installer in each login home after updating the global package.
-    refreshed = {os.path.normcase(os.path.realpath(os.path.expanduser("~/.grok")))}
+    refreshed = {os.path.normcase(os.path.realpath(default_home))}
     for name, profile in load_config().get("profiles", {}).items():
         if (profile.get("type") != "grok" or profile.get("mode") != "login"
                 or not profile.get("credentials_path")):
@@ -321,10 +339,14 @@ def upgrade():
             continue
         typer.echo(f"Refreshing Grok CLI for login profile '{name}'...")
         profile_env = dict(env, GROK_HOME=home)
-        result = _run_npm(["rebuild", "-g", "@xai-official/grok"], profile_env)
+        result = _run_npm([
+            "rebuild", "-g", "--ignore-scripts=false", "--foreground-scripts", "@xai-official/grok",
+        ], profile_env)
         if result.returncode:
             typer.echo(f"Failed to refresh Grok CLI for profile '{name}'.", err=True)
             sys.exit(result.returncode)
+        _verify_grok(home_binary(home), profile_env, installation.version)
+        typer.echo(f"Grok CLI {installation.version} verified for profile '{name}'.")
         refreshed.add(normalized_home)
     sys.exit(0)
 

@@ -1,13 +1,21 @@
 name: Publish to PyPI
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.9'
+          - os: macos-latest
+            python: '3.11'
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v6
@@ -15,7 +23,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.9'
+        python-version: ${{ matrix.python }}
 
     - name: Install package + test deps
       run: |
@@ -26,9 +34,14 @@ jobs:
     - name: Run tests
       run: python -m pytest tests/ -q
 
+    - name: Verify real Grok npm upgrade on macOS
+      if: runner.os == 'macOS'
+      run: python tests/grok_npm_smoke.py
+
   publish:
     runs-on: ubuntu-latest
     needs: test
+    if: github.event_name == 'push'
 
     steps:
     - uses: actions/checkout@v6

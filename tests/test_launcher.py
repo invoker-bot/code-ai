@@ -325,3 +325,32 @@ def test_launch_windows_passes_env_correctly():
                 env = mock_run.call_args[1]["env"]
                 assert env["ANTHROPIC_BASE_URL"] == "https://example.com"
                 assert "ANTHROPIC_AUTH_TOKEN" in env
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_launch_grok_uses_updated_npm_entry_instead_of_shadowing_path(monkeypatch, tmp_path, platform):
+    from types import SimpleNamespace
+    from src.code_ai import launcher
+
+    profile_home = str(tmp_path / "grok-account")
+    npm_command = str(tmp_path / "npm-prefix" / "bin" / "grok")
+    monkeypatch.setattr(launcher.sys, "platform", platform)
+    monkeypatch.setattr(launcher.shutil, "which", lambda name: "/old-install/grok")
+    monkeypatch.setattr(launcher, "find_npm_installation", lambda: SimpleNamespace(command=npm_command, version="1.0.46"))
+    with patch.object(launcher.os, "execvp") as execute:
+        with patch.dict(os.environ):
+            launcher.launch({"type": "grok", "mode": "login", "name": "grok-account", "credentials_path": profile_home}, ["--version"])
+            assert os.environ["GROK_HOME"] == profile_home
+    execute.assert_called_once_with(npm_command, [npm_command, "--version"])
+
+
+def test_launch_grok_without_npm_preserves_native_install(monkeypatch, tmp_path):
+    from src.code_ai import launcher
+
+    monkeypatch.setattr(launcher.sys, "platform", "darwin")
+    monkeypatch.setattr(launcher.shutil, "which", lambda name: "/native/bin/grok")
+    monkeypatch.setattr(launcher, "find_npm_installation", lambda: None)
+    with patch.object(launcher.os, "execvp") as execute:
+        with patch.dict(os.environ):
+            launcher.launch({"type": "grok", "mode": "login", "credentials_path": str(tmp_path / "native-account")}, ["--version"])
+    execute.assert_called_once_with("/native/bin/grok", ["/native/bin/grok", "--version"])
