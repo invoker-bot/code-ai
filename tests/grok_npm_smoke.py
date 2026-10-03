@@ -22,9 +22,15 @@ def main():
         for path in [old_bin / "grok", home / "bin/grok"]:
             path.write_text(old_script, encoding="utf-8")
             path.chmod(0o755)
+        default_binary = Path(home_binary(os.path.expanduser("~/.grok")))
+        if not default_binary.exists():
+            default_binary.parent.mkdir(parents=True, exist_ok=True)
+            default_binary.write_text(old_script, encoding="utf-8")
+            default_binary.chmod(0o755)
         auth = home / "auth.json"
         auth.write_text("{}\n", encoding="utf-8")
         os.environ["npm_config_prefix"] = str(prefix)
+        os.environ["npm_config_ignore_scripts"] = "true"
         os.environ["PATH"] = str(old_bin) + os.pathsep + os.environ["PATH"]
         profile = {"name": "smoke", "type": "grok", "mode": "login", "credentials_path": str(home)}
         cli.UPGRADE_PACKAGES = ["@xai-official/grok"]
