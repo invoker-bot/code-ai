@@ -3,6 +3,25 @@ from typing import List, Optional, Union
 
 VALID_TYPES = ("claude", "grok", "codex")
 
+# Used when `code-ai add` leaves the API base URL blank.
+OFFICIAL_BASE_URLS = {
+    "claude": "https://api.anthropic.com",
+    "grok": "https://api.x.ai/v1",
+    "codex": "https://api.openai.com/v1",
+}
+
+# Public xAI API hosts. These are the CLI's own API-key default, not a
+# cli-chat-proxy override, so they must not be exported as
+# GROK_CLI_CHAT_PROXY_BASE_URL.
+GROK_BUILTIN_API_URLS = frozenset({
+    OFFICIAL_BASE_URLS["grok"],
+    "https://api.x.ai",
+})
+
+
+def is_builtin_grok_api(url: str) -> bool:
+    return (url or "").strip().rstrip("/") in GROK_BUILTIN_API_URLS
+
 # default_args is stored in either form the user wrote it: a YAML list, or a
 # single command-line string parsed at use-site via shlex.split.
 DefaultArgs = Optional[Union[List[str], str]]

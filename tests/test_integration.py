@@ -75,6 +75,30 @@ class TestFullWorkflowApiProfile:
                 config = remove_profile(config, "my-claude-api")
                 assert "my-claude-api" not in config["profiles"]
 
+    def test_blank_base_url_defaults_to_official_claude(self):
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                save_config({"profiles": {}})
+                inputs = [
+                    "official-claude",
+                    "claude",
+                    "api",
+                    "",  # official Anthropic endpoint
+                    "sk-ant-test-token",
+                    "",  # proxy
+                    "",  # default_args
+                ]
+
+                with patch("builtins.input", side_effect=inputs):
+                    config = add_profile(load_config())
+                    save_config(config)
+
+                profile_dict = load_config()["profiles"]["official-claude"]
+                assert profile_dict["base_url"] == "https://api.anthropic.com"
+                env = prepare_environment(profile_from_dict(profile_dict))
+                assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
+                assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-ant-test-token"
+
 
 class TestFullWorkflowLoginProfile:
     """Test complete workflow for login profile (Claude)"""
@@ -216,6 +240,30 @@ class TestCodexProfiles:
                 assert env["OPENAI_API_KEY"] == "sk-test-key"
                 assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
 
+    def test_blank_base_url_defaults_to_official_codex(self):
+        with temp_config_file() as config_file:
+            with patch("src.code_ai.config.CONFIG_FILE", config_file):
+                save_config({"profiles": {}})
+                inputs = [
+                    "official-codex",
+                    "codex",
+                    "api",
+                    "",  # official OpenAI endpoint
+                    "sk-test-key",
+                    "",  # proxy
+                    "",  # default_args
+                ]
+
+                with patch("builtins.input", side_effect=inputs):
+                    config = add_profile(load_config())
+                    save_config(config)
+
+                profile_dict = load_config()["profiles"]["official-codex"]
+                assert profile_dict["base_url"] == "https://api.openai.com/v1"
+                env = prepare_environment(profile_from_dict(profile_dict))
+                assert env["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
+                assert env["OPENAI_API_KEY"] == "sk-test-key"
+
     def test_add_profile_captures_default_args(self):
         """`code-ai add` records non-empty default_args as a string in YAML."""
         with temp_config_file() as config_file:
@@ -291,7 +339,7 @@ class TestGrokProfiles:
                     "my-grok-api",
                     "grok",
                     "api",
-                    "",  # use the official xAI endpoint
+                    "",  # official xAI endpoint
                     "xai-test-key",
                     "",  # proxy
                     "",  # default_args
@@ -304,7 +352,7 @@ class TestGrokProfiles:
                 profile_dict = load_config()["profiles"]["my-grok-api"]
                 assert profile_dict["type"] == "grok"
                 assert profile_dict["mode"] == "api"
-                assert "base_url" not in profile_dict
+                assert profile_dict["base_url"] == "https://api.x.ai/v1"
                 assert profile_dict["api_key"] == "xai-test-key"
 
                 env = prepare_environment(profile_from_dict(profile_dict))

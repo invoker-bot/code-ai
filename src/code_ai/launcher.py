@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from typing import List
 
-from .models import profile_from_dict, ApiProfile, LoginProfile
+from .models import profile_from_dict, ApiProfile, LoginProfile, is_builtin_grok_api
 from .grok import find_npm_installation
 
 ENV_MAP = {
@@ -83,11 +83,17 @@ def prepare_environment(profile):
                         f.write('model_provider = "openai"\n')
             env[config_dir_var] = credentials_path
     elif isinstance(profile, ApiProfile):
-        # API mode: set API environment variables
+        # API mode: set API environment variables.
+        # Grok's public API is already the CLI default for API-key auth.
+        # GROK_CLI_CHAT_PROXY_BASE_URL replaces the separate cli-chat-proxy
+        # host, so an official api.x.ai URL must not be exported as that proxy.
         for env_var, config_key in spec["env"].items():
             value = getattr(profile, config_key, None)
-            if value:
-                env[env_var] = value
+            if not value:
+                continue
+            if env_var == "GROK_CLI_CHAT_PROXY_BASE_URL" and is_builtin_grok_api(value):
+                continue
+            env[env_var] = value
 
     # Handle proxy (all modes)
     if profile.proxy:

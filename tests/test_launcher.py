@@ -129,6 +129,20 @@ def test_prepare_env_grok_api_mode_allows_default_endpoint():
     assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
 
 
+def test_prepare_env_grok_official_base_url_does_not_replace_chat_proxy():
+    profile = ApiProfile(
+        name="test-grok-api",
+        type="grok",
+        base_url="https://api.x.ai/v1",
+        api_key="xai-test",
+    )
+
+    env = prepare_environment(profile)
+
+    assert env["XAI_API_KEY"] == "xai-test"
+    assert "GROK_CLI_CHAT_PROXY_BASE_URL" not in env
+
+
 def test_prepare_env_grok_login_mode():
     profile = LoginProfile(
         name="test-grok-login",

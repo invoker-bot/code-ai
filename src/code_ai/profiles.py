@@ -1,6 +1,6 @@
 import sys
 
-from .models import VALID_TYPES, profile_from_dict
+from .models import OFFICIAL_BASE_URLS, VALID_TYPES, profile_from_dict
 
 
 def list_profiles(config):
@@ -69,28 +69,13 @@ def add_profile(config):
                 credentials_path = f"~/.{ptype}-profiles/{name}"
             profile_data["credentials_path"] = credentials_path
         else:  # api mode
-            prompt = (
-                "Base URL (optional, leave blank for xAI default): "
-                if ptype == "grok"
-                else "Base URL: "
-            )
-            base_url = input(prompt).strip()
-            if not base_url and ptype != "grok":
-                print("Error: base URL cannot be empty.")
-                sys.exit(1)
+            official = OFFICIAL_BASE_URLS[ptype]
+            base_url = input(f"Base URL [{official}]: ").strip() or official
+            profile_data["base_url"] = base_url
             if ptype == "claude":
-                token = input("Auth token: ").strip()
-                profile_data["base_url"] = base_url
-                profile_data["token"] = token
-            elif ptype == "codex":
-                api_key = input("API key: ").strip()
-                profile_data["base_url"] = base_url
-                profile_data["api_key"] = api_key
-            else:  # grok
-                api_key = input("API key: ").strip()
-                if base_url:
-                    profile_data["base_url"] = base_url
-                profile_data["api_key"] = api_key
+                profile_data["token"] = input("Auth token: ").strip()
+            else:  # codex or grok
+                profile_data["api_key"] = input("API key: ").strip()
 
     # Optional proxy for all types
     proxy = input("Proxy (optional, e.g., http://127.0.0.1:7890): ").strip()
